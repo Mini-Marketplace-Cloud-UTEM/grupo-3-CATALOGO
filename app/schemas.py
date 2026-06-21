@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, List
+from typing import Annotated, Optional, List
 from datetime import datetime
 import uuid
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CreateProductRequest(BaseModel):
@@ -10,8 +11,8 @@ class CreateProductRequest(BaseModel):
     name: str
     description: Optional[str] = None
     price: float
-    stock_visible: int = Field(default=0, alias="stockVisible")
-    category_id: uuid.UUID = Field(alias="categoryId")
+    stock_visible: Annotated[int, Field(alias="stockVisible")] = 0
+    category_id: Annotated[uuid.UUID, Field(alias="categoryId")]
     sku: str
     images: Optional[List[str]] = []
 
@@ -22,7 +23,7 @@ class UpdateProductRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
-    stock_visible: Optional[int] = Field(default=None, alias="stockVisible")
+    stock_visible: Annotated[Optional[int], Field(alias="stockVisible")] = None
     status: Optional[str] = None
     images: Optional[List[str]] = None
 

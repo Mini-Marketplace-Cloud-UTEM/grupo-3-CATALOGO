@@ -46,7 +46,7 @@ def test_list_products():
     assert "pagination" in body
     assert isinstance(body["data"], list)
     p = body["pagination"]
-    assert all(k in p for k in ["page", "size", "total", "totalPages", "hasNext", "hasPrev"])
+    assert all(k in p for k in ["page", "pageSize", "total", "totalPages", "hasNext", "hasPrev"])
 
 
 def test_list_products_invalid_page():
