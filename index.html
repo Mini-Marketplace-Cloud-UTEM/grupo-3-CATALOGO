@@ -430,8 +430,8 @@
           </div>
         </div>
         <div class="meta">
-          <span>📦 Stock: ${p.stock_visible}</span>
-          <span>🏷️ ${p.category_name || 'Sin categoría'}</span>
+          <span>📦 Stock: ${p.stockVisible}</span>
+          <span>🏷️ ${p.categoryName || 'Sin categoría'}</span>
           ${p.description ? `<span>📝 ${p.description.substring(0, 60)}${p.description.length > 60 ? '...' : ''}</span>` : ''}
         </div>
       </div>
@@ -448,13 +448,13 @@
       ${row('ID', p.id)}
       ${row('SKU', p.sku)}
       ${row('Precio', `$${p.price.toLocaleString('es-CL')}`)}
-      ${row('Stock visible', p.stock_visible)}
-      ${row('Categoría', p.category_name || '—')}
+      ${row('Stock visible', p.stockVisible)}
+      ${row('Categoría', p.categoryName || '—')}
       ${row('Estado', p.status)}
       ${row('Descripción', p.description || '—')}
       ${row('Imágenes', p.images?.length ? p.images.join(', ') : '—')}
-      ${row('Creado', new Date(p.created_at).toLocaleString('es-CL'))}
-      ${row('Actualizado', new Date(p.updated_at).toLocaleString('es-CL'))}
+      ${row('Creado', new Date(p.createdAt).toLocaleString('es-CL'))}
+      ${row('Actualizado', new Date(p.updatedAt).toLocaleString('es-CL'))}
     `
     document.getElementById('modal').classList.add('open')
   }

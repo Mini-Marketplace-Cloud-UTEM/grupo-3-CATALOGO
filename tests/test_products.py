@@ -141,7 +141,7 @@ def test_update_product():
     assert res.status_code == 200
     data = res.json()
     assert data["price"] == 11990
-    assert data["stock_visible"] == 3
+    assert data["stockVisible"] == 3
 
 
 def test_update_product_not_found():

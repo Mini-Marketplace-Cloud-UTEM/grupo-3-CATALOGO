@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from datetime import datetime, timezone
 
 from app.database import Base, engine
 from app.routes import products, uploads
@@ -57,8 +56,6 @@ Servicio dueño del catálogo de productos. Administra **productos**, **categor�
 
 ```json
 {
-  "timestamp": "2026-06-20T10:00:00Z",
-  "status": 409,
   "code": "DUPLICATE_SKU",
   "message": "SKU already exists",
   "correlationId": "abc-123"
@@ -104,8 +101,6 @@ async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status": 500,
             "code": "INTERNAL_SERVER_ERROR",
             "message": "An unexpected error occurred",
             "correlationId": request.headers.get("x-correlation-id"),

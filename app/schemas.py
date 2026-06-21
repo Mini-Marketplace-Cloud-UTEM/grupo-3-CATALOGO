@@ -1,24 +1,28 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 import uuid
 
 
 class CreateProductRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
     description: Optional[str] = None
     price: float
-    stock_visible: int = 0
-    category_id: uuid.UUID
+    stock_visible: int = Field(default=0, alias="stockVisible")
+    category_id: uuid.UUID = Field(alias="categoryId")
     sku: str
     images: Optional[List[str]] = []
 
 
 class UpdateProductRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
-    stock_visible: Optional[int] = None
+    stock_visible: Optional[int] = Field(default=None, alias="stockVisible")
     status: Optional[str] = None
     images: Optional[List[str]] = None
 
@@ -28,21 +32,19 @@ class ProductResponse(BaseModel):
     name: str
     description: Optional[str]
     price: float
-    stock_visible: int
-    category_id: uuid.UUID
-    category_name: Optional[str]
+    stockVisible: int
+    categoryId: uuid.UUID
+    categoryName: Optional[str]
     sku: str
     status: str
     images: Optional[List[str]]
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
+    createdAt: datetime
+    updatedAt: datetime
 
 
 class PaginationMeta(BaseModel):
     page: int
-    size: int
+    pageSize: int
     total: int
     totalPages: int
     hasNext: bool
@@ -55,8 +57,6 @@ class ProductListResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    timestamp: str
-    status: int
     code: str
     message: str
     correlationId: Optional[str] = None
