@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from datetime import datetime, timezone
 
 from app.database import Base, engine
@@ -87,6 +87,11 @@ app.add_middleware(
 
 app.include_router(products.router)
 app.include_router(uploads.router)
+
+
+@app.get("/", include_in_schema=False)
+def frontend():
+    return FileResponse("index.html")
 
 
 @app.get("/health", tags=["Health"], summary="Estado del servicio")
