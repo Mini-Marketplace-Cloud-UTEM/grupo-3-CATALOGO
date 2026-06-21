@@ -61,3 +61,21 @@ class ErrorResponse(BaseModel):
     code: str
     message: str
     correlationId: Optional[str] = None
+
+
+class CategoryResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class CreateCategoryRequest(BaseModel):
+    name: str
+
+
+class UpdateCategoryRequest(BaseModel):
+    name: Optional[str] = None
+
+
+class CategoryListResponse(BaseModel):
+    data: List[CategoryResponse]
+    pagination: PaginationMeta

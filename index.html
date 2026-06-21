@@ -470,15 +470,10 @@
   // ── crear producto ───────────────────────────────────────────────────────
   async function loadCategories() {
     try {
-      const res = await fetch(`${API}/products?size=1`, { headers: headers() })
-      // Cargamos categorías desde el SQL directo no está disponible, usamos las del seed
-      // Hardcodeamos las del seed.sql mientras no haya endpoint /categories
-      categories = [
-        { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Herramientas' },
-        { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Electrónica' },
-        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Hogar' },
-        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Jardín' },
-      ]
+      const res = await fetch(`${API}/categories?size=100`, { headers: headers() })
+      if (!res.ok) throw new Error('categories endpoint error')
+      const body = await res.json()
+      categories = body.data
       const sel = document.getElementById('c-category')
       sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
     } catch {}

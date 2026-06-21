@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.database import Base, engine
-from app.routes import products, uploads
+from app.routes import categories, products, uploads
 
 Base.metadata.create_all(bind=engine)
 
@@ -14,6 +14,14 @@ TAGS = [
             "Operaciones sobre el catálogo de productos. "
             "Permite listar, buscar, crear y actualizar productos. "
             "Todos los listados son **paginados**."
+        ),
+    },
+    {
+        "name": "Categories",
+        "description": (
+            "Operaciones sobre las categorías del catálogo. "
+            "Permite listar, crear, actualizar y eliminar categorías. "
+            "Una categoría no puede eliminarse si tiene productos activos."
         ),
     },
     {
@@ -83,6 +91,7 @@ app.add_middleware(
 )
 
 app.include_router(products.router)
+app.include_router(categories.router)
 app.include_router(uploads.router)
 
 
