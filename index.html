@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catalog Service — Grupo 3</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 18px; font-weight: 600; }
+    header span { font-size: 12px; color: #64748b; background: #0f172a; padding: 2px 8px; border-radius: 99px; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      background: #1e293b;
+      padding: 4px;
+      border-radius: 10px;
+      width: fit-content;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      background: #3b82f6;
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Cards */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 12px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .card h3 { font-size: 15px; font-weight: 600; }
+    .card .sku { font-size: 11px; color: #64748b; font-family: monospace; }
+    .card .price { font-size: 18px; font-weight: 700; color: #34d399; }
+    .card .meta { font-size: 12px; color: #94a3b8; margin-top: 6px; display: flex; gap: 16px; }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 500;
+    }
+
+    .badge-active { background: #064e3b; color: #34d399; }
+    .badge-inactive { background: #451a03; color: #fb923c; }
+
+    /* Formularios */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+
+    label { font-size: 13px; color: #94a3b8; font-weight: 500; }
+
+    input, select, textarea {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #e2e8f0;
+      font-size: 14px;
+      outline: none;
+      transition: border 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus { border-color: #3b82f6; }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+    /* Search bar */
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-row input { flex: 1; }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: center;
+    }
+
+    .pagination span { font-size: 13px; color: #94a3b8; }
+
+    /* Response box */
+    .response-box {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #86efac;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 16px;
+    }
+
+    .error-box {
+      background: #450a0a;
+      border-color: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .empty { text-align: center; color: #475569; padding: 48px; }
+
+    /* Product detail modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px;
+      width: 500px;
+      max-width: 90vw;
+    }
+
+    .modal h2 { font-size: 17px; margin-bottom: 16px; }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #334155;
+      font-size: 13px;
+    }
+
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .key { color: #94a3b8; }
+    .detail-row .val { font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
+
+    select option { background: #1e293b; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Catalog Service</h1>
+  <span>Grupo 3</span>
+  <span id="api-status" style="margin-left:auto">⏳ conectando...</span>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('productos')">Productos</button>
+    <button class="tab" onclick="switchTab('buscar')">Buscar</button>
+    <button class="tab" onclick="switchTab('crear')">Crear producto</button>
+  </div>
+
+  <!-- ── PANEL: LISTA ── -->
+  <div id="panel-productos" class="panel active">
+    <p class="section-title">Catálogo paginado</p>
+    <div id="product-list"><p class="empty">Cargando...</p></div>
+    <div class="pagination">
+      <button class="btn btn-secondary btn-sm" onclick="changePage(-1)">← Anterior</button>
+      <span id="page-info">Página 1</span>
+      <button class="btn btn-primary btn-sm" onclick="changePage(1)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ── PANEL: BUSCAR ── -->
+  <div id="panel-buscar" class="panel">
+    <p class="section-title">Buscar productos</p>
+    <div class="search-row">
+      <input id="search-input" type="text" placeholder="Escribe al menos 2 caracteres..." />
+      <button class="btn btn-primary" onclick="doSearch()">Buscar</button>
+    </div>
+    <div id="search-results"><p class="empty">Ingresa un término para buscar.</p></div>
+  </div>
+
+  <!-- ── PANEL: CREAR ── -->
+  <div id="panel-crear" class="panel">
+    <p class="section-title">Nuevo producto</p>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input id="c-name" type="text" placeholder="Ej: Taladro 700W" />
+        </div>
+        <div class="form-group">
+          <label>SKU <span style="font-weight:400;opacity:.6">(opcional — se genera automático)</span></label>
+          <input id="c-sku" type="text" placeholder="Ej: TAL-700W-001 — dejar vacío para auto-generar" />
+        </div>
+        <div class="form-group">
+          <label>Precio *</label>
+          <input id="c-price" type="number" placeholder="49990" />
+        </div>
+        <div class="form-group">
+          <label>Stock visible</label>
+          <input id="c-stock" type="number" placeholder="10" value="0" />
+        </div>
+        <div class="form-group">
+          <label>Categoría *</label>
+          <select id="c-category">
+            <option value="">Cargando categorías...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>URL de imagen</label>
+          <input id="c-image" type="text" placeholder="https://..." />
+        </div>
+        <div class="form-group full">
+          <label>Descripción</label>
+          <textarea id="c-desc" placeholder="Descripción del producto..."></textarea>
+        </div>
+      </div>
+      <div style="margin-top:20px; display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="createProduct()">Crear producto</button>
+        <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
+      </div>
+      <div id="create-response"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal detalle -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 id="modal-title">Detalle del producto</h2>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+  const API = window.location.origin
+  let currentPage = 1
+  let totalPages = 1
+  let categories = []
+
+  // ── headers estándar ──────────────────────────────────────────────────────
+  function headers() {
+    return {
+      'Content-Type': 'application/json',
+      'X-Consumer': 'mini-frontend',
+      'X-Request-Id': crypto.randomUUID(),
+      'X-Correlation-Id': crypto.randomUUID(),
+    }
+  }
+
+  // ── check salud ──────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const res = await fetch(`${API}/health`)
+      const data = await res.json()
+      document.getElementById('api-status').textContent = '🟢 API conectada'
+      document.getElementById('api-status').style.color = '#34d399'
+    } catch {
+      document.getElementById('api-status').textContent = '🔴 API no disponible'
+      document.getElementById('api-status').style.color = '#f87171'
+    }
+  }
+
+  // ── tabs ─────────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+    event.target.classList.add('active')
+    document.getElementById(`panel-${name}`).classList.add('active')
+  }
+
+  // ── listar productos ─────────────────────────────────────────────────────
+  async function loadProducts() {
+    const res = await fetch(`${API}/products?page=${currentPage}&size=6`, { headers: headers() })
+    const data = await res.json()
+    totalPages = data.pagination.totalPages
+
+    document.getElementById('page-info').textContent =
+      `Página ${data.pagination.page} de ${data.pagination.totalPages} · ${data.pagination.total} productos`
+
+    const list = document.getElementById('product-list')
+
+    if (data.data.length === 0) {
+      list.innerHTML = '<p class="empty">No hay productos.</p>'
+      return
+    }
+
+    list.innerHTML = data.data.map(p => productCard(p)).join('')
+  }
+
+  function changePage(dir) {
+    const next = currentPage + dir
+    if (next < 1 || next > totalPages) return
+    currentPage = next
+    loadProducts()
+  }
+
+  // ── buscar ───────────────────────────────────────────────────────────────
+  async function doSearch() {
+    const q = document.getElementById('search-input').value.trim()
+    const results = document.getElementById('search-results')
+
+    if (q.length < 2) {
+      results.innerHTML = '<p class="empty">Escribe al menos 2 caracteres.</p>'
+      return
+    }
+
+    results.innerHTML = '<p class="empty">Buscando...</p>'
+
+    const res = await fetch(`${API}/products/search?q=${encodeURIComponent(q)}&size=20`, { headers: headers() })
+    const data = await res.json()
+
+    if (data.data.length === 0) {
+      results.innerHTML = `<p class="empty">Sin resultados para "${q}".</p>`
+      return
+    }
+
+    results.innerHTML = `
+      <p class="section-title">${data.pagination.total} resultado(s) para "${q}"</p>
+      ${data.data.map(p => productCard(p)).join('')}
+    `
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch()
+    })
+  })
+
+  // ── card de producto ─────────────────────────────────────────────────────
+  function productCard(p) {
+    const badge = p.status === 'ACTIVE'
+      ? '<span class="badge badge-active">ACTIVE</span>'
+      : '<span class="badge badge-inactive">INACTIVE</span>'
+
+    return `
+      <div class="card" style="cursor:pointer" onclick="showDetail('${p.id}')">
+        <div class="card-header">
+          <div>
+            <h3>${p.name}</h3>
+            <div class="sku">SKU: ${p.sku}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="price">$${p.price.toLocaleString('es-CL')}</div>
+            ${badge}
+          </div>
+        </div>
+        <div class="meta">
+          <span>📦 Stock: ${p.stockVisible}</span>
+          <span>🏷️ ${p.categoryName || 'Sin categoría'}</span>
+          ${p.description ? `<span>📝 ${p.description.substring(0, 60)}${p.description.length > 60 ? '...' : ''}</span>` : ''}
+        </div>
+      </div>
+    `
+  }
+
+  // ── detalle modal ────────────────────────────────────────────────────────
+  async function showDetail(id) {
+    const res = await fetch(`${API}/products/${id}`, { headers: headers() })
+    const p = await res.json()
+
+    document.getElementById('modal-title').textContent = p.name
+    document.getElementById('modal-body').innerHTML = `
+      ${row('ID', p.id)}
+      ${row('SKU', p.sku)}
+      ${row('Precio', `$${p.price.toLocaleString('es-CL')}`)}
+      ${row('Stock visible', p.stockVisible)}
+      ${row('Categoría', p.categoryName || '—')}
+      ${row('Estado', p.status)}
+      ${row('Descripción', p.description || '—')}
+      ${row('Imágenes', p.images?.length ? p.images.join(', ') : '—')}
+      ${row('Creado', new Date(p.createdAt).toLocaleString('es-CL'))}
+      ${row('Actualizado', new Date(p.updatedAt).toLocaleString('es-CL'))}
+    `
+    document.getElementById('modal').classList.add('open')
+  }
+
+  function row(key, val) {
+    return `<div class="detail-row"><span class="key">${key}</span><span class="val">${val}</span></div>`
+  }
+
+  function closeModal(e) {
+    if (e.target.id === 'modal') document.getElementById('modal').classList.remove('open')
+  }
+
+  // ── crear producto ───────────────────────────────────────────────────────
+  async function loadCategories() {
+    try {
+      const res = await fetch(`${API}/categories?size=100`, { headers: headers() })
+      if (!res.ok) throw new Error('categories endpoint error')
+      const body = await res.json()
+      categories = body.data
+      const sel = document.getElementById('c-category')
+      sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+    } catch {}
+  }
+
+  async function createProduct() {
+    const name     = document.getElementById('c-name').value.trim()
+    const sku      = document.getElementById('c-sku').value.trim()
+    const price    = parseFloat(document.getElementById('c-price').value)
+    const stock    = parseInt(document.getElementById('c-stock').value) || 0
+    const catId    = document.getElementById('c-category').value
+    const image    = document.getElementById('c-image').value.trim()
+    const desc     = document.getElementById('c-desc').value.trim()
+    const respBox  = document.getElementById('create-response')
+
+    if (!name || !price || !catId) {
+      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio y Categoría son obligatorios.</div>`
+      return
+    }
+
+    const body = {
+      name,
+      ...(sku && { sku }),
+      price,
+      stock_visible: stock,
+      category_id: catId,
+      description: desc || undefined,
+      images: image ? [image] : [],
+    }
+
+    const res = await fetch(`${API}/products`, {
+      method: 'POST',
+      headers: { ...headers(), 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify(body),
+    })
+
+    const data = await res.json()
+
+    if (res.status === 201) {
+      respBox.innerHTML = `<div class="response-box">✅ Producto creado exitosamente:\n\n${JSON.stringify(data, null, 2)}</div>`
+      clearForm()
+      currentPage = 1
+      loadProducts()
+    } else {
+      respBox.innerHTML = `<div class="response-box error-box">❌ Error ${res.status}:\n\n${JSON.stringify(data, null, 2)}</div>`
+    }
+  }
+
+  function clearForm() {
+    ['c-name','c-sku','c-price','c-stock','c-image','c-desc'].forEach(id => {
+      document.getElementById(id).value = ''
+    })
+    document.getElementById('c-stock').value = '0'
+  }
+
+  // ── init ─────────────────────────────────────────────────────────────────
+  checkHealth()
+  loadProducts()
+  loadCategories()
+</script>
+</body>
+</html>
