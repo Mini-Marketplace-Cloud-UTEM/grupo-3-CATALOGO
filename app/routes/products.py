@@ -1,4 +1,5 @@
 import math
+import re
 import uuid
 from typing import Optional
 
@@ -49,6 +50,15 @@ def _to_dict(product: Product) -> dict:
         "createdAt": product.created_at,
         "updatedAt": product.updated_at,
     }
+
+
+def _generate_sku(name: str, db: Session) -> str:
+    prefix = ''.join(c for c in name.upper() if c.isalpha())[:3]
+    match = re.search(r'(\d+)\s*[wW]', name)
+    mid = f"{match.group(1)}W" if match else f"{prefix}X"
+    count = db.query(Product).filter(Product.sku.like(f"{prefix}-%")).count()
+    correlative = str(count + 1).zfill(3)
+    return f"{prefix}-{mid}-{correlative}"
 
 
 def _paginate(query, page: int, size: int) -> tuple:
@@ -157,15 +167,17 @@ def create_product(
     idempotency_key: Optional[str] = Header(None, description="UUID para evitar duplicados en reintentos"),
     x_correlation_id: Optional[str] = Header(None),
 ):
-    if db.query(Product).filter(Product.sku == body.sku).first():
-        return JSONResponse(status_code=409,
-            content=_error("DUPLICATE_SKU", "SKU already exists", x_correlation_id))
-
     if not db.query(Category).filter(Category.id == body.category_id).first():
         return JSONResponse(status_code=400,
             content=_error("INVALID_REQUEST", "Category not found", x_correlation_id))
 
-    product = Product(**body.model_dump(), status="ACTIVE")
+    sku = body.sku or _generate_sku(body.name, db)
+
+    if db.query(Product).filter(Product.sku == sku).first():
+        return JSONResponse(status_code=409,
+            content=_error("DUPLICATE_SKU", "SKU already exists", x_correlation_id))
+
+    product = Product(**body.model_dump(exclude={"sku"}), sku=sku, status="ACTIVE")
     db.add(product)
     db.commit()
     db.refresh(product)

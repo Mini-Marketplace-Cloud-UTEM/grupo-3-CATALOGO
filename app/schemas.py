@@ -13,7 +13,7 @@ class CreateProductRequest(BaseModel):
     price: float
     stock_visible: Annotated[int, Field(alias="stockVisible")] = 0
     category_id: Annotated[uuid.UUID, Field(alias="categoryId")]
-    sku: str
+    sku: Optional[str] = None
     images: Optional[List[str]] = []
 
 
