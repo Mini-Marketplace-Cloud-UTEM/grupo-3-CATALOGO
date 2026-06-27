@@ -152,6 +152,28 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Eliminar producto
+      tags: [Products]
+      description: >
+        Realiza un soft delete del producto marcándolo como DELETED.
+        El producto deja de aparecer en listados y búsquedas pero
+        se conserva en la base de datos para trazabilidad.
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XConsumer'
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Producto eliminado
+        '404':
+          $ref: '#/components/responses/NotFound'
   /categories:
     get:
       summary: Listar categorías paginadas

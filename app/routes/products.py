@@ -4,7 +4,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -229,3 +229,28 @@ def update_product(
     db.refresh(product)
 
     return _to_dict(product)
+
+
+# ── DELETE /products/{id} ─────────────────────────────────────────────────────
+
+@router.delete("/{product_id}", status_code=204, summary="Eliminar producto",
+    description="Soft delete: marca el producto como DELETED. Deja de aparecer en listados y búsquedas.",
+    responses={404: _ERROR_RESPONSES[404]})
+def delete_product(
+    product_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    x_correlation_id: Optional[str] = Header(None),
+):
+    product = (
+        db.query(Product)
+        .filter(Product.id == product_id, Product.status != "DELETED")
+        .first()
+    )
+
+    if not product:
+        return JSONResponse(status_code=404,
+            content=_error("PRODUCT_NOT_FOUND", "Product not found", x_correlation_id))
+
+    product.status = "DELETED"
+    db.commit()
+    return Response(status_code=204)
