@@ -269,8 +269,8 @@
           <input id="c-name" type="text" placeholder="Ej: Taladro 700W" />
         </div>
         <div class="form-group">
-          <label>SKU *</label>
-          <input id="c-sku" type="text" placeholder="Ej: TAL-700W-001" />
+          <label>SKU <span style="font-weight:400;opacity:.6">(opcional — se genera automático)</span></label>
+          <input id="c-sku" type="text" placeholder="Ej: TAL-700W-001 — dejar vacío para auto-generar" />
         </div>
         <div class="form-group">
           <label>Precio *</label>
@@ -489,14 +489,14 @@
     const desc     = document.getElementById('c-desc').value.trim()
     const respBox  = document.getElementById('create-response')
 
-    if (!name || !sku || !price || !catId) {
-      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, SKU, Precio y Categoría son obligatorios.</div>`
+    if (!name || !price || !catId) {
+      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio y Categoría son obligatorios.</div>`
       return
     }
 
     const body = {
       name,
-      sku,
+      ...(sku && { sku }),
       price,
       stock_visible: stock,
       category_id: catId,
