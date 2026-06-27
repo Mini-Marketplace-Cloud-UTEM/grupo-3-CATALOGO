@@ -23,6 +23,8 @@ Administra productos, categorías, precios y stock visible.
 
 ## Endpoints
 
+### Productos
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `GET` | `/products` | Listar productos paginados |
@@ -30,6 +32,21 @@ Administra productos, categorías, precios y stock visible.
 | `GET` | `/products/search?q=...` | Buscar por texto |
 | `POST` | `/products` | Crear producto |
 | `PUT` | `/products/{id}` | Actualizar producto |
+
+### Categorías
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/categories` | Listar categorías paginadas |
+| `GET` | `/categories/{id}` | Obtener categoría por ID |
+| `POST` | `/categories` | Crear categoría |
+| `PUT` | `/categories/{id}` | Actualizar nombre de categoría |
+| `DELETE` | `/categories/{id}` | Eliminar categoría (sin productos activos) |
+
+### Otros
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
 | `POST` | `/uploads` | Subir imagen (retorna URL) |
 | `GET` | `/health` | Estado del servicio |
 
@@ -155,6 +172,73 @@ X-Consumer: inventory-service
 { "stock_visible": 6 }
 ```
 
+### GET /categories
+
+```http
+GET /categories?page=1&size=20
+X-Consumer: frontend-service
+```
+
+```json
+{
+  "data": [
+    { "id": "550e8400-e29b-41d4-a716-446655440002", "name": "Electrónica" },
+    { "id": "550e8400-e29b-41d4-a716-446655440001", "name": "Herramientas" }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 4,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false
+  }
+}
+```
+
+### POST /categories
+
+```http
+POST /categories
+Content-Type: application/json
+Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0201
+X-Consumer: admin-panel
+```
+
+```json
+{ "name": "Deportes" }
+```
+
+**201 — creada** · **409 — nombre duplicado**
+
+### PUT /categories/{id}
+
+Solo se modifica el nombre. El resto de productos asociados no se afecta.
+
+```http
+PUT /categories/550e8400-e29b-41d4-a716-446655440001
+Content-Type: application/json
+Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0202
+X-Consumer: admin-panel
+```
+
+```json
+{ "name": "Herramientas y Maquinaria" }
+```
+
+**200 — actualizada** · **404 — no existe** · **409 — nombre duplicado**
+
+### DELETE /categories/{id}
+
+```http
+DELETE /categories/{id}
+X-Consumer: admin-panel
+```
+
+**204 — eliminada** · **404 — no existe** · **409 — tiene productos activos**
+
+---
+
 ### POST /uploads
 
 Sube una imagen y retorna la URL pública para usar en `POST /products`.
@@ -191,7 +275,10 @@ Todos los errores siguen el mismo formato:
 |--------|------|---------------|
 | 400 | `INVALID_REQUEST` | Parámetros inválidos o categoría inexistente |
 | 404 | `PRODUCT_NOT_FOUND` | Producto no existe o fue eliminado |
+| 404 | `CATEGORY_NOT_FOUND` | Categoría no existe |
 | 409 | `DUPLICATE_SKU` | SKU ya registrado |
+| 409 | `DUPLICATE_CATEGORY` | Nombre de categoría ya existe |
+| 409 | `CATEGORY_HAS_PRODUCTS` | No se puede eliminar categoría con productos activos |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado del servidor |
 
 ---
@@ -307,7 +394,8 @@ grupo-3-CATALOGO/
 │   ├── models.py         # Tablas Product y Category
 │   ├── schemas.py        # Esquemas Pydantic request/response
 │   └── routes/
-│       ├── products.py   # Endpoints del catálogo
+│       ├── products.py   # Endpoints del catálogo de productos
+│       ├── categories.py # Endpoints de categorías
 │       └── uploads.py    # Endpoint de subida de imágenes
 ├── contrato              # Especificación OpenAPI 3.0.3
 ├── index.html            # Mini frontend de prueba
