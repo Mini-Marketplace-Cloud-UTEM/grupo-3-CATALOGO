@@ -54,8 +54,22 @@ def _to_dict(product: Product) -> dict:
 
 def _generate_sku(name: str, db: Session) -> str:
     prefix = ''.join(c for c in name.upper() if c.isalpha())[:3]
-    match = re.search(r'(\d+)\s*[wW]', name)
-    mid = f"{match.group(1)}W" if match else f"{prefix}X"
+
+    match_w = re.search(r'(\d+)\s*[wW]\b', name)
+    match_v = re.search(r'(\d+[,.]?\d*)\s*[vV]\b', name)
+    match_n = re.search(r'(\d+)', name)
+
+    if match_w:
+        mid = f"{match_w.group(1)}W"
+    elif match_v:
+        voltage = match_v.group(1).replace(',', '').replace('.', '')
+        mid = f"{voltage}V"
+    elif match_n:
+        mid = match_n.group(1)[:4]
+    else:
+        words = [w for w in name.upper().split() if len(w) > 2 and w.isalpha()]
+        mid = words[1][:3] if len(words) > 1 else "GEN"
+
     count = db.query(Product).filter(Product.sku.like(f"{prefix}-%")).count()
     correlative = str(count + 1).zfill(3)
     return f"{prefix}-{mid}-{correlative}"
