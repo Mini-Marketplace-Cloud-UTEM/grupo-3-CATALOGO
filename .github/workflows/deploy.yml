@@ -2,12 +2,11 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
       - name: Trigger deploy en Render
