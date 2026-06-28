@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.database import Base, engine
 from app.routes import categories, products, uploads
+from app.utils import error_response
 
 Base.metadata.create_all(bind=engine)
 
@@ -109,9 +110,10 @@ def health():
 async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
-        content={
-            "code": "INTERNAL_SERVER_ERROR",
-            "message": "An unexpected error occurred",
-            "correlationId": request.headers.get("x-correlation-id"),
-        },
+        content=error_response(
+            "INTERNAL_SERVER_ERROR",
+            "An unexpected error occurred",
+            500,
+            request.headers.get("x-correlation-id"),
+        ),
     )

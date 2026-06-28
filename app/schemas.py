@@ -1,4 +1,4 @@
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, List, Literal
 from datetime import datetime
 import uuid
 
@@ -10,11 +10,11 @@ class CreateProductRequest(BaseModel):
 
     name: str
     description: Optional[str] = None
-    price: float
-    stock_visible: Annotated[int, Field(alias="stockVisible")] = 0
+    price: Annotated[int, Field(gt=0)]
+    stock_visible: Annotated[int, Field(alias="stockVisible", ge=0)] = 0
     category_id: Annotated[uuid.UUID, Field(alias="categoryId")]
     sku: Optional[str] = None
-    images: Optional[List[str]] = []
+    images: List[str] = Field(default_factory=list)
 
 
 class UpdateProductRequest(BaseModel):
@@ -22,9 +22,9 @@ class UpdateProductRequest(BaseModel):
 
     name: Optional[str] = None
     description: Optional[str] = None
-    price: Optional[float] = None
-    stock_visible: Annotated[Optional[int], Field(alias="stockVisible")] = None
-    status: Optional[str] = None
+    price: Annotated[Optional[int], Field(gt=0)] = None
+    stock_visible: Annotated[Optional[int], Field(alias="stockVisible", ge=0)] = None
+    status: Optional[Literal["ACTIVE", "INACTIVE", "DELETED"]] = None
     images: Optional[List[str]] = None
 
 
@@ -32,12 +32,12 @@ class ProductResponse(BaseModel):
     id: uuid.UUID
     name: str
     description: Optional[str]
-    price: float
+    price: int
     stockVisible: int
     categoryId: uuid.UUID
     categoryName: Optional[str]
     sku: str
-    status: str
+    status: Literal["ACTIVE", "INACTIVE", "DELETED"]
     images: Optional[List[str]]
     createdAt: datetime
     updatedAt: datetime
@@ -58,6 +58,8 @@ class ProductListResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
+    timestamp: datetime
+    status: int
     code: str
     message: str
     correlationId: Optional[str] = None

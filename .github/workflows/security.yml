@@ -1,0 +1,28 @@
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar herramientas de seguridad
+        run: pip install pip-audit bandit
+
+      - name: pip-audit (CVEs en dependencias)
+        run: pip-audit -r requirements.txt
+
+      - name: Bandit (patrones inseguros en código)
+        run: bandit -r app/ -ll -x app/routes/uploads.py
+        # uploads.py usa subprocess-like patterns del SDK de Supabase, no código nuestro
