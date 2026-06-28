@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Numeric, Integer, DateTime, ForeignKey, func
+from sqlalchemy import Column, String, Numeric, Integer, DateTime, ForeignKey, func, Index, BigInteger
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -26,12 +26,12 @@ class Product(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    price = Column(Numeric(10, 2), nullable=False)
-    stock_visible = Column(Integer, default=0)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
+    price = Column(BigInteger, nullable=False)
+    stock_visible = Column(Integer, nullable=False, default=0)
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False, index=True)
     sku = Column(String, nullable=False, unique=True)
-    status = Column(String, nullable=False, default="ACTIVE")
-    images = Column(ARRAY(String), default=[])
+    status = Column(String, nullable=False, default="ACTIVE", index=True)
+    images = Column(ARRAY(String), default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

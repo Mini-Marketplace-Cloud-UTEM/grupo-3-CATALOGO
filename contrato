@@ -4,6 +4,8 @@ info:
   version: 1.0.0
   description: Contrato REST del Grupo 3 para administrar el catálogo de productos.
 servers:
+  - url: https://grupo-3-catalogo.onrender.com
+    description: "Producción (Render)"
   - url: http://127.0.0.1:4010
     description: Mock local con Prism
 paths:
@@ -41,18 +43,18 @@ paths:
                     name: "Taladro Eléctrico 700W"
                     description: "Taladro percutor profesional"
                     price: 49990
-                    stock_visible: 15
-                    category_id: "550e8400-e29b-41d4-a716-446655440001"
-                    category_name: "Herramientas"
+                    stockVisible: 15
+                    categoryId: "550e8400-e29b-41d4-a716-446655440001"
+                    categoryName: "Herramientas"
                     sku: "TAL-700W-PRO"
                     status: "ACTIVE"
                     images:
                       - "https://cdn.marketplace.cl/products/taladro.jpg"
-                    created_at: "2026-05-01T10:00:00Z"
-                    updated_at: "2026-05-20T08:30:00Z"
+                    createdAt: "2026-05-01T10:00:00Z"
+                    updatedAt: "2026-05-20T08:30:00Z"
                 pagination:
                   page: 1
-                  size: 20
+                  pageSize: 20
                   total: 1
                   totalPages: 1
                   hasNext: false
@@ -77,8 +79,8 @@ paths:
               name: "Sierra Circular 1200W"
               description: "Sierra circular portátil con disco incluido"
               price: 69990
-              stock_visible: 8
-              category_id: "550e8400-e29b-41d4-a716-446655440001"
+              stockVisible: 8
+              categoryId: "550e8400-e29b-41d4-a716-446655440001"
               sku: "SIE-1200W-PR"
               images:
                 - "https://cdn.marketplace.cl/products/sierra-circular.jpg"
@@ -139,7 +141,7 @@ paths:
             example:
               name: "Sierra Circular 1200W Pro"
               price: 74990
-              stock_visible: 6
+              stockVisible: 6
               status: ACTIVE
       responses:
         '200':
@@ -174,6 +176,52 @@ paths:
           description: Producto eliminado
         '404':
           $ref: '#/components/responses/NotFound'
+  /products/search:
+    get:
+      summary: Buscar productos
+      tags: [Products]
+      parameters:
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XConsumer'
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - in: query
+          name: categoryId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, DELETED]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
   /categories:
     get:
       summary: Listar categorías paginadas
@@ -324,55 +372,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
+                timestamp: "2026-06-27T10:00:00Z"
+                status: 409
                 code: "CATEGORY_HAS_PRODUCTS"
                 message: "Cannot delete a category that has active products"
                 correlationId: "abc-123"
-  /products/search:
-    get:
-      summary: Buscar productos
-      tags: [Products]
-      parameters:
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XCorrelationId'
-        - $ref: '#/components/parameters/XConsumer'
-        - in: query
-          name: q
-          required: true
-          schema:
-            type: string
-            minLength: 2
-        - in: query
-          name: category_id
-          schema:
-            type: string
-            format: uuid
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum: [ACTIVE, INACTIVE, DELETED]
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - in: query
-          name: size
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-      responses:
-        '200':
-          description: Resultados de búsqueda
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductListResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
 components:
   parameters:
     XRequestId:
@@ -434,24 +438,10 @@ components:
           items:
             $ref: '#/components/schemas/Category'
         pagination:
-          type: object
-          required: [page, pageSize, total, totalPages, hasNext, hasPrev]
-          properties:
-            page:
-              type: integer
-            pageSize:
-              type: integer
-            total:
-              type: integer
-            totalPages:
-              type: integer
-            hasNext:
-              type: boolean
-            hasPrev:
-              type: boolean
+          $ref: '#/components/schemas/PaginationMeta'
     Product:
       type: object
-      required: [id, name, price, stock_visible, category_id, sku, status]
+      required: [id, name, price, stockVisible, categoryId, sku, status]
       properties:
         id:
           type: string
@@ -461,13 +451,15 @@ components:
         description:
           type: string
         price:
-          type: number
-        stock_visible:
           type: integer
-        category_id:
+          minimum: 1
+        stockVisible:
+          type: integer
+          minimum: 0
+        categoryId:
           type: string
           format: uuid
-        category_name:
+        categoryName:
           type: string
         sku:
           type: string
@@ -479,26 +471,28 @@ components:
           items:
             type: string
             format: uri
-        created_at:
+        createdAt:
           type: string
           format: date-time
-        updated_at:
+        updatedAt:
           type: string
           format: date-time
     CreateProductRequest:
       type: object
-      required: [name, price, category_id, sku]
+      required: [name, price, categoryId]
       properties:
         name:
           type: string
         description:
           type: string
         price:
-          type: number
-        stock_visible:
           type: integer
+          minimum: 1
+        stockVisible:
+          type: integer
+          minimum: 0
           default: 0
-        category_id:
+        categoryId:
           type: string
           format: uuid
         sku:
@@ -516,10 +510,14 @@ components:
         description:
           type: string
         price:
-          type: number
+          type: integer
+          minimum: 1
+        stockVisible:
+          type: integer
+          minimum: 0
         status:
           type: string
-          enum: [ACTIVE, INACTIVE]
+          enum: [ACTIVE, INACTIVE, DELETED]
         images:
           type: array
           items:
@@ -534,23 +532,26 @@ components:
           items:
             $ref: '#/components/schemas/Product'
         pagination:
-          type: object
-          required: [page, size, total, totalPages, hasNext, hasPrev]
-          properties:
-            page:
-              type: integer
-            size:
-              type: integer
-            total:
-              type: integer
-            totalPages:
-              type: integer
-            hasNext:
-              type: boolean
-            hasPrev:
-              type: boolean
+          $ref: '#/components/schemas/PaginationMeta'
+    PaginationMeta:
+      type: object
+      required: [page, pageSize, total, totalPages, hasNext, hasPrev]
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
     ErrorResponse:
       type: object
+      required: [timestamp, status, code, message]
       properties:
         timestamp:
           type: string
@@ -571,7 +572,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            timestamp: "2026-06-16T10:00:00Z"
+            timestamp: "2026-06-27T10:00:00Z"
             status: 400
             code: "INVALID_REQUEST"
             message: "Invalid input"
@@ -583,7 +584,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            timestamp: "2026-06-16T10:00:00Z"
+            timestamp: "2026-06-27T10:00:00Z"
             status: 404
             code: "PRODUCT_NOT_FOUND"
             message: "Product not found"
@@ -595,7 +596,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            timestamp: "2026-06-16T10:00:00Z"
+            timestamp: "2026-06-27T10:00:00Z"
             status: 409
             code: "DUPLICATE_SKU"
             message: "SKU already exists"

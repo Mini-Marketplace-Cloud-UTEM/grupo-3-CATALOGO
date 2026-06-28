@@ -14,19 +14,16 @@ from app.schemas import (
     CreateCategoryRequest,
     UpdateCategoryRequest,
 )
+from app.utils import error_response
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 _ERROR_RESPONSES = {
-    400: {"description": "Solicitud inválida",       "content": {"application/json": {"example": {"code": "INVALID_REQUEST",      "message": "Invalid input",                    "correlationId": "abc-123"}}}},
-    404: {"description": "Categoría no encontrada",  "content": {"application/json": {"example": {"code": "CATEGORY_NOT_FOUND",   "message": "Category not found",               "correlationId": "abc-123"}}}},
-    409: {"description": "Nombre duplicado",         "content": {"application/json": {"example": {"code": "DUPLICATE_CATEGORY",   "message": "Category name already exists",     "correlationId": "abc-123"}}}},
-    422: {"description": "Categoría con productos",  "content": {"application/json": {"example": {"code": "CATEGORY_HAS_PRODUCTS","message": "Cannot delete category with active products", "correlationId": "abc-123"}}}},
+    400: {"description": "Solicitud inválida",       "content": {"application/json": {"example": {"timestamp": "2026-05-25T10:00:00Z", "status": 400, "code": "INVALID_REQUEST",      "message": "Invalid input",                    "correlationId": "abc-123"}}}},
+    404: {"description": "Categoría no encontrada",  "content": {"application/json": {"example": {"timestamp": "2026-05-25T10:00:00Z", "status": 404, "code": "CATEGORY_NOT_FOUND",   "message": "Category not found",               "correlationId": "abc-123"}}}},
+    409: {"description": "Nombre duplicado",         "content": {"application/json": {"example": {"timestamp": "2026-05-25T10:00:00Z", "status": 409, "code": "DUPLICATE_CATEGORY",   "message": "Category name already exists",     "correlationId": "abc-123"}}}},
+    422: {"description": "Categoría con productos",  "content": {"application/json": {"example": {"timestamp": "2026-05-25T10:00:00Z", "status": 409, "code": "CATEGORY_HAS_PRODUCTS","message": "Cannot delete category with active products", "correlationId": "abc-123"}}}},
 }
-
-
-def _error(code: str, message: str, correlation_id: Optional[str] = None) -> dict:
-    return {"code": code, "message": message, "correlationId": correlation_id}
 
 
 def _to_dict(category: Category) -> dict:
@@ -77,7 +74,7 @@ def get_category(
     category = db.query(Category).filter(Category.id == category_id).first()
     if not category:
         return JSONResponse(status_code=404,
-            content=_error("CATEGORY_NOT_FOUND", "Category not found", x_correlation_id))
+            content=error_response("CATEGORY_NOT_FOUND", "Category not found", 404, x_correlation_id))
     return _to_dict(category)
 
 
@@ -94,7 +91,7 @@ def create_category(
 ):
     if db.query(Category).filter(Category.name == body.name).first():
         return JSONResponse(status_code=409,
-            content=_error("DUPLICATE_CATEGORY", "Category name already exists", x_correlation_id))
+            content=error_response("DUPLICATE_CATEGORY", "Category name already exists", 409, x_correlation_id))
 
     category = Category(name=body.name)
     db.add(category)
@@ -118,7 +115,7 @@ def update_category(
     category = db.query(Category).filter(Category.id == category_id).first()
     if not category:
         return JSONResponse(status_code=404,
-            content=_error("CATEGORY_NOT_FOUND", "Category not found", x_correlation_id))
+            content=error_response("CATEGORY_NOT_FOUND", "Category not found", 404, x_correlation_id))
 
     if body.name is not None:
         conflict = (
@@ -128,7 +125,7 @@ def update_category(
         )
         if conflict:
             return JSONResponse(status_code=409,
-                content=_error("DUPLICATE_CATEGORY", "Category name already exists", x_correlation_id))
+                content=error_response("DUPLICATE_CATEGORY", "Category name already exists", 409, x_correlation_id))
         category.name = body.name
 
     db.commit()
@@ -140,7 +137,7 @@ def update_category(
 
 @router.delete("/{category_id}", status_code=204, summary="Eliminar categoría",
     description="Elimina una categoría. Falla si tiene productos activos asociados.",
-    responses={404: _ERROR_RESPONSES[404], 409: _ERROR_RESPONSES[422]})
+    responses={404: _ERROR_RESPONSES[404], 409: _ERROR_RESPONSES[409], 422: _ERROR_RESPONSES[422]})
 def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -149,7 +146,7 @@ def delete_category(
     category = db.query(Category).filter(Category.id == category_id).first()
     if not category:
         return JSONResponse(status_code=404,
-            content=_error("CATEGORY_NOT_FOUND", "Category not found", x_correlation_id))
+            content=error_response("CATEGORY_NOT_FOUND", "Category not found", 404, x_correlation_id))
 
     has_products = (
         db.query(Product)
@@ -158,8 +155,8 @@ def delete_category(
     )
     if has_products:
         return JSONResponse(status_code=409,
-            content=_error("CATEGORY_HAS_PRODUCTS",
-                           "Cannot delete a category that has active products", x_correlation_id))
+            content=error_response("CATEGORY_HAS_PRODUCTS",
+                           "Cannot delete a category that has active products", 409, x_correlation_id))
 
     db.delete(category)
     db.commit()

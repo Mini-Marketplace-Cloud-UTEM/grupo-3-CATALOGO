@@ -5,8 +5,46 @@ Administra productos, categorías, precios y stock visible.
 
 - **Stack:** Python 3.11 · FastAPI · SQLAlchemy · PostgreSQL (Supabase)
 - **Deploy:** Render
-- **Swagger:** `<URL>/docs`
+- **URL:** https://grupo-3-catalogo.onrender.com
+- **Swagger:** https://grupo-3-catalogo.onrender.com/docs
 - **Contrato OpenAPI:** archivo [`contrato`](contrato)
+
+---
+
+## Arquitectura
+
+### C1 — Contexto del sistema
+
+```mermaid
+graph TD
+    U([Usuario / Cliente]) -->|Busca y navega catálogo| G1[Grupo 1\nFrontend]
+    G1 -->|GET /products\nGET /products/search| CAT[🗂️ Catalog Service\nGrupo 3]
+    G4[Grupo 4\nCarro] -->|GET /products/:id| CAT
+    G6[Grupo 6\nInventario] -->|PUT /products/:id\nactualiza stockVisible| CAT
+    G10[Grupo 10\nReportería] -->|GET /products| CAT
+    CAT -->|SQL| DB[(Supabase\nPostgreSQL)]
+    CAT -->|Storage| ST[(Supabase\nStorage)]
+```
+
+### C2 — Contenedores internos
+
+```mermaid
+graph TD
+    subgraph "Catalog Service — Render"
+        API[FastAPI App\napp/main.py]
+        PR[Products Router\napp/routes/products.py]
+        CR[Categories Router\napp/routes/categories.py]
+        UR[Uploads Router\napp/routes/uploads.py]
+        ORM[SQLAlchemy ORM\napp/models.py]
+        API --> PR
+        API --> CR
+        API --> UR
+        PR --> ORM
+        CR --> ORM
+    end
+    ORM -->|psycopg2| DB[(PostgreSQL\nSupabase)]
+    UR -->|supabase-py| ST[(Storage\nSupabase)]
+```
 
 ---
 
@@ -32,6 +70,7 @@ Administra productos, categorías, precios y stock visible.
 | `GET` | `/products/search?q=...` | Buscar por texto |
 | `POST` | `/products` | Crear producto |
 | `PUT` | `/products/{id}` | Actualizar producto |
+| `DELETE` | `/products/{id}` | Eliminar producto (soft delete) |
 
 ### Categorías
 
@@ -78,19 +117,19 @@ X-Consumer: frontend-service
       "name": "Taladro Eléctrico 700W",
       "description": "Taladro percutor profesional",
       "price": 49990,
-      "stock_visible": 15,
-      "category_id": "550e8400-e29b-41d4-a716-446655440001",
-      "category_name": "Herramientas",
+      "stockVisible": 15,
+      "categoryId": "550e8400-e29b-41d4-a716-446655440001",
+      "categoryName": "Herramientas",
       "sku": "TAL-700W-PRO",
       "status": "ACTIVE",
       "images": ["https://cdn.marketplace.cl/products/taladro.jpg"],
-      "created_at": "2026-05-01T10:00:00Z",
-      "updated_at": "2026-05-20T08:30:00Z"
+      "createdAt": "2026-05-01T10:00:00Z",
+      "updatedAt": "2026-05-20T08:30:00Z"
     }
   ],
   "pagination": {
     "page": 1,
-    "size": 20,
+    "pageSize": 20,
     "total": 1,
     "totalPages": 1,
     "hasNext": false,
@@ -109,7 +148,7 @@ X-Consumer: frontend-service
 | Parámetro | Tipo | Requerido | Default |
 |-----------|------|-----------|---------|
 | `q` | string (mín. 2 chars) | Sí | — |
-| `category_id` | uuid | No | — |
+| `categoryId` | uuid | No | — |
 | `status` | `ACTIVE` · `INACTIVE` · `DELETED` | No | excluye `DELETED` |
 | `page` | integer | No | 1 |
 | `size` | integer (máx. 100) | No | 10 |
@@ -126,7 +165,7 @@ X-Consumer: cart-service
 **404 — producto no encontrado:**
 ```json
 {
-  "timestamp": "2026-06-20T10:00:00Z",
+  "timestamp": "2026-06-27T10:00:00Z",
   "status": 404,
   "code": "PRODUCT_NOT_FOUND",
   "message": "Product not found",
@@ -148,8 +187,8 @@ X-Consumer: admin-panel
   "name": "Sierra Circular 1200W",
   "description": "Sierra circular portátil con disco incluido",
   "price": 69990,
-  "stock_visible": 8,
-  "category_id": "550e8400-e29b-41d4-a716-446655440001",
+  "stockVisible": 8,
+  "categoryId": "550e8400-e29b-41d4-a716-446655440001",
   "sku": "SIE-1200W-PR",
   "images": ["https://cdn.marketplace.cl/products/sierra.jpg"]
 }
@@ -169,8 +208,19 @@ X-Consumer: inventory-service
 ```
 
 ```json
-{ "stock_visible": 6 }
+{ "stockVisible": 6 }
 ```
+
+### DELETE /products/{id}
+
+```http
+DELETE /products/550e8400-e29b-41d4-a716-446655440000
+X-Consumer: admin-panel
+```
+
+Soft delete: el producto queda con `status: DELETED` y deja de aparecer en listados y búsquedas.
+
+**204 — eliminado** · **404 — no existe**
 
 ### GET /categories
 
@@ -263,7 +313,7 @@ Todos los errores siguen el mismo formato:
 
 ```json
 {
-  "timestamp": "2026-06-20T10:00:00Z",
+  "timestamp": "2026-05-25T10:00:00Z",
   "status": 409,
   "code": "DUPLICATE_SKU",
   "message": "SKU already exists",
@@ -273,6 +323,8 @@ Todos los errores siguen el mismo formato:
 
 | Status | Code | Cuándo ocurre |
 |--------|------|---------------|
+| Status | Code | Cuándo ocurre |
+|--------|------|---------------|
 | 400 | `INVALID_REQUEST` | Parámetros inválidos o categoría inexistente |
 | 404 | `PRODUCT_NOT_FOUND` | Producto no existe o fue eliminado |
 | 404 | `CATEGORY_NOT_FOUND` | Categoría no existe |
@@ -280,6 +332,7 @@ Todos los errores siguen el mismo formato:
 | 409 | `DUPLICATE_CATEGORY` | Nombre de categoría ya existe |
 | 409 | `CATEGORY_HAS_PRODUCTS` | No se puede eliminar categoría con productos activos |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado del servidor |
+| 502 | `STORAGE_ERROR` | Fallo al subir imagen a Supabase Storage |
 
 ---
 
@@ -347,10 +400,12 @@ cp .env.example .env
 # Abrir .env y pegar los tres valores
 ```
 
-### Paso 3 — Cargar datos iniciales
+### Paso 3 — Crear tablas y cargar datos iniciales
 
-En Supabase → **SQL Editor**, ejecutar el contenido de [`seed.sql`](seed.sql).  
-Esto crea las tablas `categories` y `products` con datos de ejemplo.
+En Supabase → **SQL Editor**, ejecutar en orden:
+
+1. [`schema.sql`](schema.sql) — crea las tablas, índices y constraints
+2. [`seed.sql`](seed.sql) — inserta categorías y productos de ejemplo
 
 ### Paso 4 — (Opcional) Bucket para imágenes
 
@@ -388,6 +443,11 @@ SUPABASE_KEY=[anon-public-key]
 
 ```
 grupo-3-CATALOGO/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml        # Lint + tests + cobertura
+│       ├── security.yml  # CVEs + análisis de seguridad
+│       └── deploy.yml    # Deploy automático a Render
 ├── app/
 │   ├── main.py           # FastAPI app, CORS, tags Swagger
 │   ├── database.py       # Conexión SQLAlchemy → Supabase
@@ -397,8 +457,12 @@ grupo-3-CATALOGO/
 │       ├── products.py   # Endpoints del catálogo de productos
 │       ├── categories.py # Endpoints de categorías
 │       └── uploads.py    # Endpoint de subida de imágenes
+├── tests/
+│   ├── test_products.py  # Tests funcionales de productos
+│   └── test_categories.py # Tests funcionales de categorías
 ├── contrato              # Especificación OpenAPI 3.0.3
 ├── index.html            # Mini frontend de prueba
+├── schema.sql            # DDL: CREATE TABLE + índices + constraints
 ├── seed.sql              # Datos iniciales para Supabase
 ├── requirements.txt      # Dependencias Python
 ├── Procfile              # Comando de inicio para Render
@@ -416,7 +480,30 @@ grupo-3-CATALOGO/
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 4. Agregar las 3 variables de entorno (`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`)
-5. Deploy — cada push a `main` redeploya automáticamente
+5. Copiar el **Deploy Hook URL** desde Render → Settings → Deploy Hook y agregarlo como secret `RENDER_DEPLOY_HOOK_URL` en GitHub
+
+Cada push a `main` dispara el deploy automáticamente vía GitHub Actions.
+
+---
+
+## CI/CD
+
+El repositorio cuenta con 3 pipelines en `.github/workflows/`:
+
+| Workflow | Trigger | Qué hace |
+|----------|---------|----------|
+| `ci.yml` | Push/PR en todas las ramas | Lint (ruff) + formato + tests + cobertura mínima 60% |
+| `security.yml` | Push/PR a `main` y `develop` | Escaneo de CVEs en dependencias (pip-audit) + análisis de código inseguro (bandit) |
+| `deploy.yml` | Push a `main` | Deploy automático a Render vía Deploy Hook |
+
+### Secrets requeridos en GitHub
+
+| Secret | Descripción |
+|--------|-------------|
+| `DATABASE_URL` | URI de conexión a Supabase (Transaction pooler) |
+| `SUPABASE_URL` | URL del proyecto Supabase |
+| `SUPABASE_KEY` | Clave anon pública de Supabase |
+| `RENDER_DEPLOY_HOOK_URL` | Deploy Hook de Render para trigger automático |
 
 ---
 

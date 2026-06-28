@@ -23,8 +23,11 @@ jobs:
       - name: Lint (ruff)
         run: ruff check app/
 
-      - name: Tests
-        run: pytest tests/ -v
+      - name: Formato (ruff format)
+        run: ruff format --check app/
+
+      - name: Tests con cobertura
+        run: pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=60
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
