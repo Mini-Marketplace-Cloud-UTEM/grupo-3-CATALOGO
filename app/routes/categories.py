@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
+from app.auth import require_admin
 from app.database import get_db
 from app.models import Category, Product
 from app.schemas import (
@@ -158,6 +159,7 @@ def get_category(
 def create_category(
     body: CreateCategoryRequest,
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
     idempotency_key: Optional[str] = Header(
         None, description="UUID para evitar duplicados en reintentos"
     ),
@@ -195,6 +197,7 @@ def update_category(
     category_id: uuid.UUID,
     body: UpdateCategoryRequest,
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
     idempotency_key: Optional[str] = Header(None),
     x_correlation_id: Optional[str] = Header(None),
 ):
@@ -247,6 +250,7 @@ def update_category(
 def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
     x_correlation_id: Optional[str] = Header(None),
 ):
     category = db.query(Category).filter(Category.id == category_id).first()

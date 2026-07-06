@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -104,6 +105,25 @@ def frontend():
 @app.get("/health", tags=["Health"], summary="Estado del servicio")
 def health():
     return {"status": "ok", "service": "catalog-service", "version": "1.0.0"}
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    detail = exc.detail
+    if isinstance(detail, dict):
+        code = detail.get("code", "ERROR")
+        message = detail.get("message", str(detail))
+        correlation_id = detail.get(
+            "correlationId", request.headers.get("x-correlation-id")
+        )
+    else:
+        code = "ERROR"
+        message = str(detail)
+        correlation_id = request.headers.get("x-correlation-id")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(code, message, exc.status_code, correlation_id),
+    )
 
 
 @app.exception_handler(Exception)

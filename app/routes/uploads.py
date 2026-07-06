@@ -2,10 +2,11 @@ import os
 import uuid
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, File, Header, UploadFile
+from fastapi import APIRouter, Depends, File, Header, UploadFile
 from fastapi.responses import JSONResponse
 from supabase import create_client
 
+from app.auth import require_admin
 from app.utils import error_response
 
 load_dotenv()
@@ -27,6 +28,7 @@ MAX_SIZE_MB = 5
 )
 async def upload_image(
     file: UploadFile = File(...),
+    _admin=Depends(require_admin),
     x_correlation_id: str | None = Header(None),
     x_consumer: str | None = Header(None),
 ):
