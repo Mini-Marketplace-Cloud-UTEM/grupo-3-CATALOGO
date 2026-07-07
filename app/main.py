@@ -145,6 +145,7 @@ async def log_requests(request: Request, call_next):
 
     return response
 
+
 app.include_router(products.router)
 app.include_router(categories.router)
 app.include_router(uploads.router)
