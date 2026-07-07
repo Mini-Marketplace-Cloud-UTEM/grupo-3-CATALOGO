@@ -3,11 +3,13 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from app.auth import require_admin
 from app.database import get_db
+from app.idempotency import get_cached_response, store_response
 from app.models import Category, Product
 from app.schemas import (
     CategoryListResponse,
@@ -165,22 +167,42 @@ def create_category(
     ),
     x_correlation_id: Optional[str] = Header(None),
 ):
-    if db.query(Category).filter(Category.name == body.name).first():
+    endpoint = "POST /categories"
+
+    if not idempotency_key:
         return JSONResponse(
-            status_code=409,
+            status_code=400,
             content=error_response(
-                "DUPLICATE_CATEGORY",
-                "Category name already exists",
-                409,
+                "INVALID_REQUEST",
+                "Idempotency-Key header is required",
+                400,
                 x_correlation_id,
             ),
         )
+
+    cached = get_cached_response(db, idempotency_key, endpoint)
+    if cached:
+        status, body_cached = cached
+        return JSONResponse(status_code=status, content=body_cached)
+
+    if db.query(Category).filter(Category.name == body.name).first():
+        content = error_response(
+            "DUPLICATE_CATEGORY",
+            "Category name already exists",
+            409,
+            x_correlation_id,
+        )
+        store_response(db, idempotency_key, endpoint, 409, content)
+        return JSONResponse(status_code=409, content=content)
 
     category = Category(name=body.name)
     db.add(category)
     db.commit()
     db.refresh(category)
-    return _to_dict(category)
+
+    content = jsonable_encoder(_to_dict(category))
+    store_response(db, idempotency_key, endpoint, 201, content)
+    return content
 
 
 # ── PUT /categories/{id} ─────────────────────────────────────────────────────

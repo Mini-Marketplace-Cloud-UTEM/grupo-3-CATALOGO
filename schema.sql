@@ -59,3 +59,17 @@ DROP TRIGGER IF EXISTS trg_products_updated_at ON products;
 CREATE TRIGGER trg_products_updated_at
     BEFORE UPDATE ON products
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ── Tabla: idempotency_records ───────────────────────────────
+-- Cachea la respuesta de un POST por Idempotency-Key + endpoint,
+-- para que un reintento con la misma key devuelva el resultado
+-- original en vez de crear un duplicado.
+
+CREATE TABLE IF NOT EXISTS idempotency_records (
+    key             VARCHAR     NOT NULL,
+    endpoint        VARCHAR     NOT NULL,
+    response_status INTEGER     NOT NULL,
+    response_body   JSONB       NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (key, endpoint)
+);
