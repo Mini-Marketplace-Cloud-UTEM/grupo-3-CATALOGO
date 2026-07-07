@@ -253,7 +253,10 @@ def create_product(
         return JSONResponse(
             status_code=400,
             content=error_response(
-                "INVALID_REQUEST", "Idempotency-Key header is required", 400, x_correlation_id
+                "INVALID_REQUEST",
+                "Idempotency-Key header is required",
+                400,
+                x_correlation_id,
             ),
         )
 

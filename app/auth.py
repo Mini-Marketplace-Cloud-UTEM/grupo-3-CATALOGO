@@ -30,7 +30,10 @@ async def require_admin(
 
     token = authorization.removeprefix("Bearer ")
 
-    forwarded_headers = {"Authorization": f"Bearer {token}", "X-Consumer": "catalog-service"}
+    forwarded_headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Consumer": "catalog-service",
+    }
     if x_correlation_id:
         forwarded_headers["X-Correlation-Id"] = x_correlation_id
     if x_request_id:

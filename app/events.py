@@ -9,9 +9,7 @@ import httpx
 logger = logging.getLogger("catalog.events")
 
 _SUBSCRIBERS = [
-    url.strip()
-    for url in os.getenv("EVENT_SUBSCRIBERS", "").split(",")
-    if url.strip()
+    url.strip() for url in os.getenv("EVENT_SUBSCRIBERS", "").split(",") if url.strip()
 ]
 
 
@@ -43,18 +41,20 @@ async def publish_product_price_changed(
     new_price: int,
     correlation_id: Optional[str],
 ) -> None:
-    await _dispatch({
-        "event": "ProductPriceChanged",
-        "eventId": str(uuid.uuid4()),
-        "occurredAt": datetime.now(timezone.utc).isoformat(),
-        "correlationId": correlation_id,
-        "data": {
-            "productId": str(product_id),
-            "sku": sku,
-            "oldPrice": old_price,
-            "newPrice": new_price,
-        },
-    })
+    await _dispatch(
+        {
+            "event": "ProductPriceChanged",
+            "eventId": str(uuid.uuid4()),
+            "occurredAt": datetime.now(timezone.utc).isoformat(),
+            "correlationId": correlation_id,
+            "data": {
+                "productId": str(product_id),
+                "sku": sku,
+                "oldPrice": old_price,
+                "newPrice": new_price,
+            },
+        }
+    )
 
 
 async def publish_product_status_changed(
@@ -64,15 +64,17 @@ async def publish_product_status_changed(
     new_status: str,
     correlation_id: Optional[str],
 ) -> None:
-    await _dispatch({
-        "event": "ProductStatusChanged",
-        "eventId": str(uuid.uuid4()),
-        "occurredAt": datetime.now(timezone.utc).isoformat(),
-        "correlationId": correlation_id,
-        "data": {
-            "productId": str(product_id),
-            "sku": sku,
-            "oldStatus": old_status,
-            "newStatus": new_status,
-        },
-    })
+    await _dispatch(
+        {
+            "event": "ProductStatusChanged",
+            "eventId": str(uuid.uuid4()),
+            "occurredAt": datetime.now(timezone.utc).isoformat(),
+            "correlationId": correlation_id,
+            "data": {
+                "productId": str(product_id),
+                "sku": sku,
+                "oldStatus": old_status,
+                "newStatus": new_status,
+            },
+        }
+    )
