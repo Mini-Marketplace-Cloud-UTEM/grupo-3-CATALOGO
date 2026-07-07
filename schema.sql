@@ -68,6 +68,7 @@ CREATE TRIGGER trg_products_updated_at
 CREATE TABLE IF NOT EXISTS idempotency_records (
     key             VARCHAR     NOT NULL,
     endpoint        VARCHAR     NOT NULL,
+    request_hash    VARCHAR,
     response_status INTEGER     NOT NULL,
     response_body   JSONB       NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

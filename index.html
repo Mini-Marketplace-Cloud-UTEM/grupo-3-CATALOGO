@@ -356,14 +356,31 @@
   let categories = []
   let currentProductId = null
 
+  // ── token admin (Grupo 2) — se pide solo cuando hace falta, se recuerda
+  // en esta pestaña mientras siga abierta (sessionStorage) ────────────────
+  function getAdminToken() {
+    let token = sessionStorage.getItem('adminToken')
+    if (!token) {
+      const input = prompt('Esta acción requiere un token admin real de Grupo 2.\nPega el access_token (sin la palabra "Bearer"):')
+      if (input) {
+        token = input.trim()
+        sessionStorage.setItem('adminToken', token)
+      }
+    }
+    return token
+  }
+
   // ── headers estándar ──────────────────────────────────────────────────────
   function headers() {
-    return {
+    const base = {
       'Content-Type': 'application/json',
       'X-Consumer': 'mini-frontend',
       'X-Request-Id': crypto.randomUUID(),
       'X-Correlation-Id': crypto.randomUUID(),
     }
+    const token = sessionStorage.getItem('adminToken')
+    if (token) base['Authorization'] = `Bearer ${token}`
+    return base
   }
 
   // ── check salud ──────────────────────────────────────────────────────────
@@ -503,6 +520,7 @@
 
   // ── actualizar producto ──────────────────────────────────────────────────
   async function updateProduct() {
+    if (!getAdminToken()) return
     const respBox = document.getElementById('edit-response')
     const body = {
       price: parseFloat(document.getElementById('e-price').value),
@@ -527,6 +545,7 @@
 
   // ── eliminar producto (soft delete) ──────────────────────────────────────
   async function deleteProduct() {
+    if (!getAdminToken()) return
     const respBox = document.getElementById('edit-response')
 
     if (!confirm('¿Eliminar este producto? Quedará marcado como DELETED y dejará de aparecer en listados.')) {
@@ -569,6 +588,7 @@
   }
 
   async function createProduct() {
+    if (!getAdminToken()) return
     const name     = document.getElementById('c-name').value.trim()
     const sku      = document.getElementById('c-sku').value.trim()
     const price    = parseFloat(document.getElementById('c-price').value)

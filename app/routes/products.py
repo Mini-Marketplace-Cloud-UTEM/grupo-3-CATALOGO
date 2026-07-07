@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.auth import require_admin
 from app.database import get_db
 from app.events import publish_product_price_changed, publish_product_status_changed
-from app.idempotency import get_cached_response, store_response
+from app.idempotency import (
+    CONFLICT,
+    compute_request_hash,
+    get_cached_response,
+    store_response,
+)
 from app.models import Category, Product
 from app.schemas import (
     CreateProductRequest,
@@ -260,7 +265,18 @@ def create_product(
             ),
         )
 
-    cached = get_cached_response(db, idempotency_key, endpoint)
+    request_hash = compute_request_hash(body.model_dump())
+    cached = get_cached_response(db, idempotency_key, endpoint, request_hash)
+    if cached == CONFLICT:
+        return JSONResponse(
+            status_code=409,
+            content=error_response(
+                "IDEMPOTENCY_KEY_CONFLICT",
+                "Esta Idempotency-Key ya se usó con datos diferentes. Usa una key distinta para esta operación.",
+                409,
+                x_correlation_id,
+            ),
+        )
     if cached:
         status, body_cached = cached
         return JSONResponse(status_code=status, content=body_cached)
@@ -269,7 +285,7 @@ def create_product(
         content = error_response(
             "INVALID_REQUEST", "Category not found", 400, x_correlation_id
         )
-        store_response(db, idempotency_key, endpoint, 400, content)
+        store_response(db, idempotency_key, endpoint, 400, content, request_hash)
         return JSONResponse(status_code=400, content=content)
 
     sku = body.sku or _generate_sku(body.name, db)
@@ -278,7 +294,7 @@ def create_product(
         content = error_response(
             "DUPLICATE_SKU", "SKU already exists", 409, x_correlation_id
         )
-        store_response(db, idempotency_key, endpoint, 409, content)
+        store_response(db, idempotency_key, endpoint, 409, content, request_hash)
         return JSONResponse(status_code=409, content=content)
 
     product = Product(**body.model_dump(exclude={"sku"}), sku=sku, status="ACTIVE")
@@ -290,12 +306,12 @@ def create_product(
         content = error_response(
             "DUPLICATE_SKU", "SKU already exists", 409, x_correlation_id
         )
-        store_response(db, idempotency_key, endpoint, 409, content)
+        store_response(db, idempotency_key, endpoint, 409, content, request_hash)
         return JSONResponse(status_code=409, content=content)
     db.refresh(product)
 
     content = jsonable_encoder(_to_dict(product))
-    store_response(db, idempotency_key, endpoint, 201, content)
+    store_response(db, idempotency_key, endpoint, 201, content, request_hash)
     return content
 
 
@@ -315,7 +331,6 @@ def update_product(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
-    idempotency_key: Optional[str] = Header(None),
     x_correlation_id: Optional[str] = Header(None),
 ):
     product = (
