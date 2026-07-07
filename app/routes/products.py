@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.auth import require_admin
 from app.database import get_db
 from app.events import publish_product_price_changed, publish_product_status_changed
-from app.idempotency import CONFLICT, compute_request_hash, get_cached_response, store_response
+from app.idempotency import (
+    CONFLICT,
+    compute_request_hash,
+    get_cached_response,
+    store_response,
+)
 from app.models import Category, Product
 from app.schemas import (
     CreateProductRequest,
