@@ -22,6 +22,7 @@ graph TD
     G4[Grupo 4\nCarro] -->|GET /products/:id| CAT
     G6[Grupo 6\nInventario] -->|PUT /products/:id\nactualiza stockVisible| CAT
     G10[Grupo 10\nReportería] -->|GET /products| CAT
+    G2[Grupo 2\nAuth] -->|JWT token\nvalidación admin| CAT
     CAT -->|SQL| DB[(Supabase\nPostgreSQL)]
     CAT -->|Storage| ST[(Supabase\nStorage)]
 ```
@@ -323,8 +324,6 @@ Todos los errores siguen el mismo formato:
 
 | Status | Code | Cuándo ocurre |
 |--------|------|---------------|
-| Status | Code | Cuándo ocurre |
-|--------|------|---------------|
 | 400 | `INVALID_REQUEST` | Parámetros inválidos o categoría inexistente |
 | 404 | `PRODUCT_NOT_FOUND` | Producto no existe o fue eliminado |
 | 404 | `CATEGORY_NOT_FOUND` | Categoría no existe |
@@ -343,7 +342,7 @@ products
 ├── id             UUID  PK
 ├── name           TEXT  NOT NULL
 ├── description    TEXT
-├── price          NUMERIC(10,2)  NOT NULL
+├── price          BIGINT  NOT NULL  -- entero en CLP (ej: 49990)
 ├── stock_visible  INTEGER  DEFAULT 0
 ├── category_id    UUID  FK → categories.id
 ├── sku            TEXT  UNIQUE NOT NULL
@@ -357,7 +356,18 @@ categories
 └── name TEXT  UNIQUE NOT NULL
 ```
 
-Categorías disponibles (cargadas con `seed.sql`):
+### Productos demo para pruebas de integración
+
+Productos con UUIDs fijos disponibles en la nube para que otros grupos puedan probar sin crear datos:
+
+| UUID | Nombre | Status | Uso sugerido |
+|------|--------|--------|-------------|
+| `550e8400-e29b-41d4-a716-446655440000` | Taladro Eléctrico 700W | `ACTIVE` | Flujo normal — agregar al carrito, consultar precio |
+| `660e8400-e29b-41d4-a716-446655440001` | Sierra Circular 1200W | `ACTIVE` | Segundo producto activo para pruebas de listado |
+| `880e8400-e29b-41d4-a716-446655440003` | Lijadora Orbital 300W | `INACTIVE` | Probar rechazo en carrito (producto no disponible) |
+| `00000000-0000-0000-0000-000000000000` | — | No existe | Probar respuesta 404 `PRODUCT_NOT_FOUND` |
+
+### Categorías disponibles (cargadas con `seed.sql`):
 
 | ID | Nombre |
 |----|--------|

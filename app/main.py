@@ -1,3 +1,6 @@
+import logging
+import time
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +9,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from app.database import Base, engine
 from app.routes import categories, products, uploads
 from app.utils import error_response
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger("catalog")
 
 Base.metadata.create_all(bind=engine)
 
@@ -91,6 +100,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    correlation_id = request.headers.get("x-correlation-id", "-")
+    request_id = request.headers.get("x-request-id", "-")
+    consumer = request.headers.get("x-consumer", "unknown")
+    start = time.time()
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        duration_ms = round((time.time() - start) * 1000)
+        logger.error(
+            "UNHANDLED ERROR %s %s | %dms | consumer=%s | correlation=%s | error=%s",
+            request.method,
+            request.url.path,
+            duration_ms,
+            consumer,
+            correlation_id,
+            repr(exc),
+        )
+        raise
+
+    duration_ms = round((time.time() - start) * 1000)
+    msg = "%s %s → %s | %dms | consumer=%s | correlation=%s | request=%s"
+    args = (
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        consumer,
+        correlation_id,
+        request_id,
+    )
+
+    if response.status_code >= 500:
+        logger.error(msg, *args)
+    elif response.status_code >= 400:
+        logger.warning(msg, *args)
+    else:
+        logger.info(msg, *args)
+
+    return response
+
 
 app.include_router(products.router)
 app.include_router(categories.router)

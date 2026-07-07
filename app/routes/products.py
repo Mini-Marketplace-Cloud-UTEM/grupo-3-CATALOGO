@@ -73,7 +73,7 @@ def _to_dict(product: Product) -> dict:
         "id": product.id,
         "name": product.name,
         "description": product.description,
-        "price": float(product.price),
+        "price": int(product.price),
         "stockVisible": product.stock_visible,
         "categoryId": product.category_id,
         "categoryName": product.category.name if product.category else None,

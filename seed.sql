@@ -40,5 +40,16 @@ INSERT INTO products (id, name, description, price, stock_visible, category_id, 
     'ASP-2000W-H',
     'ACTIVE',
     ARRAY[]::text[]
+  ),
+  (
+    '880e8400-e29b-41d4-a716-446655440003',
+    'Lijadora Orbital 300W',
+    'Lijadora orbital compacta — producto temporalmente sin stock',
+    29990,
+    0,
+    '550e8400-e29b-41d4-a716-446655440001',
+    'LIJ-300W-ORB',
+    'INACTIVE',
+    ARRAY[]::text[]
   )
 ON CONFLICT (id) DO NOTHING;
