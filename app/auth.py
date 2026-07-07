@@ -13,6 +13,7 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"
 async def require_admin(
     authorization: Optional[str] = Header(None),
     x_correlation_id: Optional[str] = Header(None),
+    x_request_id: Optional[str] = Header(None),
 ):
     if not AUTH_ENABLED:
         return {"id": "test", "roles": ["admin"]}
@@ -29,11 +30,17 @@ async def require_admin(
 
     token = authorization.removeprefix("Bearer ")
 
+    forwarded_headers = {"Authorization": f"Bearer {token}", "X-Consumer": "catalog-service"}
+    if x_correlation_id:
+        forwarded_headers["X-Correlation-Id"] = x_correlation_id
+    if x_request_id:
+        forwarded_headers["X-Request-Id"] = x_request_id
+
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
                 f"{AUTH_SERVICE_URL}/auth/validate",
-                headers={"Authorization": f"Bearer {token}"},
+                headers=forwarded_headers,
             )
     except httpx.RequestError:
         raise HTTPException(

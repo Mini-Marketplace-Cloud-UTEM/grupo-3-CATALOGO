@@ -5,12 +5,15 @@ from typing import Literal, Optional
 
 from sqlalchemy.exc import IntegrityError
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_admin
 from app.database import get_db
+from app.events import publish_product_price_changed, publish_product_status_changed
+from app.idempotency import get_cached_response, store_response
 from app.models import Category, Product
 from app.schemas import (
     CreateProductRequest,
@@ -244,23 +247,36 @@ def create_product(
     ),
     x_correlation_id: Optional[str] = Header(None),
 ):
-    if not db.query(Category).filter(Category.id == body.category_id).first():
+    endpoint = "POST /products"
+
+    if not idempotency_key:
         return JSONResponse(
             status_code=400,
             content=error_response(
-                "INVALID_REQUEST", "Category not found", 400, x_correlation_id
+                "INVALID_REQUEST", "Idempotency-Key header is required", 400, x_correlation_id
             ),
         )
+
+    cached = get_cached_response(db, idempotency_key, endpoint)
+    if cached:
+        status, body_cached = cached
+        return JSONResponse(status_code=status, content=body_cached)
+
+    if not db.query(Category).filter(Category.id == body.category_id).first():
+        content = error_response(
+            "INVALID_REQUEST", "Category not found", 400, x_correlation_id
+        )
+        store_response(db, idempotency_key, endpoint, 400, content)
+        return JSONResponse(status_code=400, content=content)
 
     sku = body.sku or _generate_sku(body.name, db)
 
     if db.query(Product).filter(Product.sku == sku).first():
-        return JSONResponse(
-            status_code=409,
-            content=error_response(
-                "DUPLICATE_SKU", "SKU already exists", 409, x_correlation_id
-            ),
+        content = error_response(
+            "DUPLICATE_SKU", "SKU already exists", 409, x_correlation_id
         )
+        store_response(db, idempotency_key, endpoint, 409, content)
+        return JSONResponse(status_code=409, content=content)
 
     product = Product(**body.model_dump(exclude={"sku"}), sku=sku, status="ACTIVE")
     db.add(product)
@@ -268,15 +284,16 @@ def create_product(
         db.commit()
     except IntegrityError:
         db.rollback()
-        return JSONResponse(
-            status_code=409,
-            content=error_response(
-                "DUPLICATE_SKU", "SKU already exists", 409, x_correlation_id
-            ),
+        content = error_response(
+            "DUPLICATE_SKU", "SKU already exists", 409, x_correlation_id
         )
+        store_response(db, idempotency_key, endpoint, 409, content)
+        return JSONResponse(status_code=409, content=content)
     db.refresh(product)
 
-    return _to_dict(product)
+    content = jsonable_encoder(_to_dict(product))
+    store_response(db, idempotency_key, endpoint, 201, content)
+    return content
 
 
 # ── PUT /products/{id} ────────────────────────────────────────────────────────
@@ -292,6 +309,7 @@ def create_product(
 def update_product(
     product_id: uuid.UUID,
     body: UpdateProductRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
     idempotency_key: Optional[str] = Header(None),
@@ -312,11 +330,35 @@ def update_product(
             ),
         )
 
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    old_price = product.price
+    old_status = product.status
+
+    for field, value in updates.items():
         setattr(product, field, value)
 
     db.commit()
     db.refresh(product)
+
+    if "price" in updates and product.price != old_price:
+        background_tasks.add_task(
+            publish_product_price_changed,
+            product_id=product.id,
+            sku=product.sku,
+            old_price=old_price,
+            new_price=product.price,
+            correlation_id=x_correlation_id,
+        )
+
+    if "status" in updates and product.status != old_status:
+        background_tasks.add_task(
+            publish_product_status_changed,
+            product_id=product.id,
+            sku=product.sku,
+            old_status=old_status,
+            new_status=product.status,
+            correlation_id=x_correlation_id,
+        )
 
     return _to_dict(product)
 
@@ -333,6 +375,7 @@ def update_product(
 )
 def delete_product(
     product_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
     x_correlation_id: Optional[str] = Header(None),
@@ -351,6 +394,17 @@ def delete_product(
             ),
         )
 
+    old_status = product.status
     product.status = "DELETED"
     db.commit()
+
+    background_tasks.add_task(
+        publish_product_status_changed,
+        product_id=product.id,
+        sku=product.sku,
+        old_status=old_status,
+        new_status="DELETED",
+        correlation_id=x_correlation_id,
+    )
+
     return Response(status_code=204)
