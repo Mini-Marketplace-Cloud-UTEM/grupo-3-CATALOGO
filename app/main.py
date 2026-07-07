@@ -108,10 +108,25 @@ async def log_requests(request: Request, call_next):
     request_id = request.headers.get("x-request-id", "-")
     consumer = request.headers.get("x-consumer", "unknown")
     start = time.time()
-    response = await call_next(request)
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        duration_ms = round((time.time() - start) * 1000)
+        logger.error(
+            "UNHANDLED ERROR %s %s | %dms | consumer=%s | correlation=%s | error=%s",
+            request.method,
+            request.url.path,
+            duration_ms,
+            consumer,
+            correlation_id,
+            repr(exc),
+        )
+        raise
+
     duration_ms = round((time.time() - start) * 1000)
-    logger.info(
-        "%s %s → %s | %dms | consumer=%s | correlation=%s | request=%s",
+    msg = "%s %s → %s | %dms | consumer=%s | correlation=%s | request=%s"
+    args = (
         request.method,
         request.url.path,
         response.status_code,
@@ -120,6 +135,14 @@ async def log_requests(request: Request, call_next):
         correlation_id,
         request_id,
     )
+
+    if response.status_code >= 500:
+        logger.error(msg, *args)
+    elif response.status_code >= 400:
+        logger.warning(msg, *args)
+    else:
+        logger.info(msg, *args)
+
     return response
 
 app.include_router(products.router)
