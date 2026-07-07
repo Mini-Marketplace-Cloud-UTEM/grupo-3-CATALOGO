@@ -241,6 +241,7 @@ X-Consumer: cart-service
 ```http
 POST /products
 Content-Type: application/json
+Authorization: Bearer <token-admin>
 Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0101
 X-Consumer: admin-panel
 ```
@@ -266,7 +267,7 @@ Solo se modifican los campos enviados. El resto queda igual.
 ```http
 PUT /products/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
-Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0102
+Authorization: Bearer <token-admin>
 X-Consumer: inventory-service
 ```
 
@@ -278,6 +279,7 @@ X-Consumer: inventory-service
 
 ```http
 DELETE /products/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 ```
 
@@ -314,6 +316,7 @@ X-Consumer: frontend-service
 ```http
 POST /categories
 Content-Type: application/json
+Authorization: Bearer <token-admin>
 Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0201
 X-Consumer: admin-panel
 ```
@@ -331,7 +334,7 @@ Solo se modifica el nombre. El resto de productos asociados no se afecta.
 ```http
 PUT /categories/550e8400-e29b-41d4-a716-446655440001
 Content-Type: application/json
-Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0202
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 ```
 
@@ -345,6 +348,7 @@ X-Consumer: admin-panel
 
 ```http
 DELETE /categories/{id}
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 ```
 
@@ -359,6 +363,7 @@ Sube una imagen y retorna la URL pública para usar en `POST /products`.
 ```http
 POST /uploads
 Content-Type: multipart/form-data
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 
 file: <archivo .jpg/.png/.webp — máx. 5MB>

@@ -47,6 +47,7 @@ class IdempotencyRecord(Base):
 
     key = Column(String, primary_key=True)
     endpoint = Column(String, primary_key=True)
+    request_hash = Column(String, nullable=True)
     response_status = Column(Integer, nullable=False)
     response_body = Column(JSONB, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
