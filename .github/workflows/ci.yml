@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, feature/franco, feature/isaac]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: catalog_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check app/
+
+      - name: Formato (ruff format)
+        run: ruff format --check app/
+
+      - name: Cargar schema y datos de prueba
+        run: |
+          psql "postgresql://test_user:test_password@localhost:5432/catalog_test" -f schema.sql
+          psql "postgresql://test_user:test_password@localhost:5432/catalog_test" -f seed.sql
+
+      - name: Tests con cobertura
+        run: pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=60
+        env:
+          # Base de datos efimera del job, no la de Supabase real -
+          # evita ensuciar produccion con datos de prueba en cada push.
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/catalog_test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          AUTH_ENABLED: "false"

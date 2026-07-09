@@ -1,0 +1,16 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, develop]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger deploy en Render
+        run: |
+          curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            --retry 3 --retry-delay 5
