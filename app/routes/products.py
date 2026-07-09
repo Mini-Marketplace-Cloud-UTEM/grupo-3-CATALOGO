@@ -87,6 +87,7 @@ def _to_dict(product: Product) -> dict:
         "categoryName": product.category.name if product.category else None,
         "sku": product.sku,
         "status": product.status,
+        "size": product.size,
         "images": product.images or [],
         "createdAt": product.created_at,
         "updatedAt": product.updated_at,
@@ -240,7 +241,10 @@ def get_product(
     response_model=ProductResponse,
     status_code=201,
     summary="Crear producto",
-    description="Crea un producto. El SKU debe ser único. Sube la imagen primero con `POST /uploads`.",
+    description=(
+        "Crea un producto. El SKU debe ser único. Sube la imagen primero con `POST /uploads`. "
+        "`stockVisible` siempre inicia en 0: lo administra Grupo 6 (Inventario) vía `PUT /products/{id}`."
+    ),
     responses={400: _ERROR_RESPONSES[400], 409: _ERROR_RESPONSES[409]},
 )
 def create_product(

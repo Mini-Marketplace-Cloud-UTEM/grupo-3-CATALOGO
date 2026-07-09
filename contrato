@@ -48,6 +48,7 @@ paths:
                     categoryName: "Herramientas"
                     sku: "TAL-700W-PRO"
                     status: "ACTIVE"
+                    size: "M"
                     images:
                       - "https://cdn.marketplace.cl/products/taladro.jpg"
                     createdAt: "2026-05-01T10:00:00Z"
@@ -79,9 +80,9 @@ paths:
               name: "Sierra Circular 1200W"
               description: "Sierra circular portátil con disco incluido"
               price: 69990
-              stockVisible: 8
               categoryId: "550e8400-e29b-41d4-a716-446655440001"
               sku: "SIE-1200W-PR"
+              size: "L"
               images:
                 - "https://cdn.marketplace.cl/products/sierra-circular.jpg"
       responses:
@@ -466,6 +467,9 @@ components:
         status:
           type: string
           enum: [ACTIVE, INACTIVE, DELETED]
+        size:
+          type: string
+          enum: [XS, S, M, L, XL, XXL]
         images:
           type: array
           items:
@@ -479,7 +483,10 @@ components:
           format: date-time
     CreateProductRequest:
       type: object
-      required: [name, price, categoryId]
+      required: [name, price, categoryId, size]
+      description: >
+        `stockVisible` no es parte de este request: todo producto se crea con
+        stock 0 y lo administra Grupo 6 (Inventario) vía PUT /products/{id}.
       properties:
         name:
           type: string
@@ -488,15 +495,14 @@ components:
         price:
           type: integer
           minimum: 1
-        stockVisible:
-          type: integer
-          minimum: 0
-          default: 0
         categoryId:
           type: string
           format: uuid
         sku:
           type: string
+        size:
+          type: string
+          enum: [XS, S, M, L, XL, XXL]
         images:
           type: array
           items:
@@ -518,6 +524,9 @@ components:
         status:
           type: string
           enum: [ACTIVE, INACTIVE, DELETED]
+        size:
+          type: string
+          enum: [XS, S, M, L, XL, XXL]
         images:
           type: array
           items:

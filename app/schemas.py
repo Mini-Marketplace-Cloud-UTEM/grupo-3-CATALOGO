@@ -4,6 +4,8 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
+SizeEnum = Literal["XS", "S", "M", "L", "XL", "XXL"]
+
 
 class CreateProductRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -11,9 +13,9 @@ class CreateProductRequest(BaseModel):
     name: str
     description: Optional[str] = None
     price: Annotated[int, Field(gt=0)]
-    stock_visible: Annotated[int, Field(alias="stockVisible", ge=0)] = 0
     category_id: Annotated[uuid.UUID, Field(alias="categoryId")]
     sku: Optional[str] = None
+    size: SizeEnum
     images: List[str] = Field(default_factory=list)
 
 
@@ -25,6 +27,7 @@ class UpdateProductRequest(BaseModel):
     price: Annotated[Optional[int], Field(gt=0)] = None
     stock_visible: Annotated[Optional[int], Field(alias="stockVisible", ge=0)] = None
     status: Optional[Literal["ACTIVE", "INACTIVE", "DELETED"]] = None
+    size: Optional[SizeEnum] = None
     images: Optional[List[str]] = None
 
 
@@ -38,6 +41,7 @@ class ProductResponse(BaseModel):
     categoryName: Optional[str]
     sku: str
     status: Literal["ACTIVE", "INACTIVE", "DELETED"]
+    size: SizeEnum
     images: Optional[List[str]]
     createdAt: datetime
     updatedAt: datetime

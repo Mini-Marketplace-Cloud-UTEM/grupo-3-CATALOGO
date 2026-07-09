@@ -7,7 +7,7 @@ INSERT INTO categories (id, name) VALUES
   ('550e8400-e29b-41d4-a716-446655440004', 'Jardín')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO products (id, name, description, price, stock_visible, category_id, sku, status, images) VALUES
+INSERT INTO products (id, name, description, price, stock_visible, category_id, sku, status, size, images) VALUES
   (
     '550e8400-e29b-41d4-a716-446655440000',
     'Taladro Eléctrico 700W',
@@ -17,6 +17,7 @@ INSERT INTO products (id, name, description, price, stock_visible, category_id, 
     '550e8400-e29b-41d4-a716-446655440001',
     'TAL-700W-PRO',
     'ACTIVE',
+    'M',
     ARRAY['https://cdn.marketplace.cl/products/taladro.jpg']
   ),
   (
@@ -28,6 +29,7 @@ INSERT INTO products (id, name, description, price, stock_visible, category_id, 
     '550e8400-e29b-41d4-a716-446655440001',
     'SIE-1200W-PR',
     'ACTIVE',
+    'L',
     ARRAY['https://cdn.marketplace.cl/products/sierra-circular.jpg']
   ),
   (
@@ -39,6 +41,7 @@ INSERT INTO products (id, name, description, price, stock_visible, category_id, 
     '550e8400-e29b-41d4-a716-446655440003',
     'ASP-2000W-H',
     'ACTIVE',
+    'XL',
     ARRAY[]::text[]
   ),
   (
@@ -50,6 +53,7 @@ INSERT INTO products (id, name, description, price, stock_visible, category_id, 
     '550e8400-e29b-41d4-a716-446655440001',
     'LIJ-300W-ORB',
     'INACTIVE',
+    'S',
     ARRAY[]::text[]
   )
 ON CONFLICT (id) DO NOTHING;

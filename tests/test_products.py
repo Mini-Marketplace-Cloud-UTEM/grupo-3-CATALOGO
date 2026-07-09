@@ -82,16 +82,32 @@ def test_create_product():
         "name": "Producto Test CI",
         "description": "Creado por el test suite",
         "price": 9990,
+        # stock_visible se manda a propósito: debe ser ignorado, el producto
+        # siempre nace con stock 0 (lo administra Grupo 6 vía PUT).
         "stock_visible": 5,
         "category_id": "550e8400-e29b-41d4-a716-446655440001",
         "sku": SKU_TEST,
+        "size": "M",
     }
     res = client.post("/products", json=body, headers={**HEADERS, **IDEMPOTENCY})
     assert res.status_code == 201
     data = res.json()
     assert data["sku"] == SKU_TEST
     assert data["status"] == "ACTIVE"
+    assert data["size"] == "M"
+    assert data["stockVisible"] == 0
     CREATED_ID = data["id"]
+
+
+def test_create_product_missing_size():
+    body = {
+        "name": "Sin talla",
+        "price": 1000,
+        "category_id": "550e8400-e29b-41d4-a716-446655440001",
+        "sku": f"NO-SIZE-{uuid.uuid4().hex[:6].upper()}",
+    }
+    res = client.post("/products", json=body, headers={**HEADERS, "Idempotency-Key": str(uuid.uuid4())})
+    assert res.status_code == 422
 
 
 def test_create_product_duplicate_sku():
@@ -100,6 +116,7 @@ def test_create_product_duplicate_sku():
         "price": 1000,
         "category_id": "550e8400-e29b-41d4-a716-446655440001",
         "sku": SKU_TEST,
+        "size": "M",
     }
     res = client.post("/products", json=body, headers={**HEADERS, "Idempotency-Key": str(uuid.uuid4())})
     assert res.status_code == 409
@@ -112,6 +129,7 @@ def test_create_product_invalid_category():
         "price": 1000,
         "category_id": str(uuid.uuid4()),
         "sku": f"NO-CAT-{uuid.uuid4().hex[:6].upper()}",
+        "size": "M",
     }
     res = client.post("/products", json=body, headers={**HEADERS, "Idempotency-Key": str(uuid.uuid4())})
     assert res.status_code == 400
