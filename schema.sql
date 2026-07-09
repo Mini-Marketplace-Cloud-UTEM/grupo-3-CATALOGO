@@ -26,10 +26,18 @@ CREATE TABLE IF NOT EXISTS products (
     sku           VARCHAR     NOT NULL UNIQUE,
     status        VARCHAR     NOT NULL DEFAULT 'ACTIVE'
                               CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED')),
+    size          VARCHAR     NOT NULL DEFAULT 'M'
+                              CHECK (size IN ('XS', 'S', 'M', 'L', 'XL', 'XXL')),
     images        TEXT[]      NOT NULL DEFAULT '{}',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Agrega la columna `size` si la tabla ya existía sin ella (deploy previo)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS size VARCHAR NOT NULL DEFAULT 'M';
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_size_check;
+ALTER TABLE products ADD CONSTRAINT products_size_check
+    CHECK (size IN ('XS', 'S', 'M', 'L', 'XL', 'XXL'));
 
 -- ── Índices ──────────────────────────────────────────────────
 

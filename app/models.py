@@ -33,6 +33,7 @@ class Product(Base):
     )
     sku = Column(String, nullable=False, unique=True)
     status = Column(String, nullable=False, default="ACTIVE", index=True)
+    size = Column(String, nullable=False, default="M")
     images = Column(ARRAY(String), default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
