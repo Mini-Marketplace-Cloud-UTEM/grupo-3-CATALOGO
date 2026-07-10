@@ -284,8 +284,16 @@
           <input id="c-price" type="number" placeholder="49990" />
         </div>
         <div class="form-group">
-          <label>Stock visible</label>
-          <input id="c-stock" type="number" placeholder="10" value="0" />
+          <label>Talla *</label>
+          <select id="c-size">
+            <option value="">Selecciona una talla</option>
+            <option value="XS">XS</option>
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+            <option value="XXL">XXL</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Categoría *</label>
@@ -592,14 +600,14 @@
     const name     = document.getElementById('c-name').value.trim()
     const sku      = document.getElementById('c-sku').value.trim()
     const price    = parseFloat(document.getElementById('c-price').value)
-    const stock    = parseInt(document.getElementById('c-stock').value) || 0
+    const size     = document.getElementById('c-size').value
     const catId    = document.getElementById('c-category').value
     const image    = document.getElementById('c-image').value.trim()
     const desc     = document.getElementById('c-desc').value.trim()
     const respBox  = document.getElementById('create-response')
 
-    if (!name || !price || !catId) {
-      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio y Categoría son obligatorios.</div>`
+    if (!name || !price || !catId || !size) {
+      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio, Categoría y Talla son obligatorios.</div>`
       return
     }
 
@@ -607,7 +615,7 @@
       name,
       ...(sku && { sku }),
       price,
-      stock_visible: stock,
+      size,
       category_id: catId,
       description: desc || undefined,
       images: image ? [image] : [],
@@ -632,10 +640,9 @@
   }
 
   function clearForm() {
-    ['c-name','c-sku','c-price','c-stock','c-image','c-desc'].forEach(id => {
+    ['c-name','c-sku','c-price','c-size','c-image','c-desc'].forEach(id => {
       document.getElementById(id).value = ''
     })
-    document.getElementById('c-stock').value = '0'
   }
 
   // ── init ─────────────────────────────────────────────────────────────────
