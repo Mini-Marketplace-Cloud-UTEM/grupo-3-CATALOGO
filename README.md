@@ -66,7 +66,7 @@ graph TD
 | Grupo | Servicio | Qué consume |
 |-------|----------|-------------|
 | Grupo 1 | Frontend | `GET /products` · `GET /products/search` |
-| Grupo 4 | Carro | `GET /products/{id}` · evento `ProductPriceChanged` |
+| Grupo 4 | Carro | `GET /products/{id}` · evento `ProductPriceChanged` · usa `size` para cotizar despacho con Grupo 6 |
 | Grupo 6 | Inventario | `PUT /products/{id}` (actualiza `stock_visible`) |
 | Grupo 10 | Reportería | `GET /products` |
 | Grupo 2 | Identidad | Validamos admin vía `POST /auth/validate` (llamada saliente) |
@@ -185,6 +185,7 @@ X-Consumer: frontend-service
       "categoryName": "Herramientas",
       "sku": "TAL-700W-PRO",
       "status": "ACTIVE",
+      "size": "M",
       "images": ["https://cdn.marketplace.cl/products/taladro.jpg"],
       "createdAt": "2026-05-01T10:00:00Z",
       "updatedAt": "2026-05-20T08:30:00Z"
@@ -251,12 +252,16 @@ X-Consumer: admin-panel
   "name": "Sierra Circular 1200W",
   "description": "Sierra circular portátil con disco incluido",
   "price": 69990,
-  "stockVisible": 8,
   "categoryId": "550e8400-e29b-41d4-a716-446655440001",
   "sku": "SIE-1200W-PR",
+  "size": "L",
   "images": ["https://cdn.marketplace.cl/products/sierra.jpg"]
 }
 ```
+
+`size` es obligatorio al crear (usado por Grupo 6 para cotizar el despacho) y acepta `XS · S · M · L · XL · XXL`.
+
+`stockVisible` no se envía en la creación: todo producto nace con stock `0`. Es Grupo 6 (Inventario) quien lo actualiza después vía `PUT /products/{id}`; si se manda igual en el body, se ignora.
 
 **201 — creado** · **409 — SKU duplicado** · **400 — categoría no existe**
 
@@ -410,10 +415,11 @@ products
 ├── name           TEXT  NOT NULL
 ├── description    TEXT
 ├── price          BIGINT  NOT NULL  -- entero en CLP (ej: 49990)
-├── stock_visible  INTEGER  DEFAULT 0
+├── stock_visible  INTEGER  DEFAULT 0        -- solo Grupo 6 lo cambia (PUT), siempre nace en 0
 ├── category_id    UUID  FK → categories.id
 ├── sku            TEXT  UNIQUE NOT NULL
 ├── status         TEXT  DEFAULT 'ACTIVE'   -- ACTIVE | INACTIVE | DELETED
+├── size           TEXT  DEFAULT 'M'        -- XS | S | M | L | XL | XXL
 ├── images         TEXT[]
 ├── created_at     TIMESTAMPTZ  DEFAULT NOW()
 └── updated_at     TIMESTAMPTZ  DEFAULT NOW()
