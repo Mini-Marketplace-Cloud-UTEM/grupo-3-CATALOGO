@@ -12,7 +12,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_admin
 from app.database import get_db
-from app.events import publish_product_price_changed, publish_product_status_changed
+from app.events import (
+    publish_product_created,
+    publish_product_price_changed,
+    publish_product_status_changed,
+)
 from app.idempotency import (
     CONFLICT,
     compute_request_hash,
@@ -249,6 +253,7 @@ def get_product(
 )
 def create_product(
     body: CreateProductRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
     idempotency_key: Optional[str] = Header(
@@ -316,6 +321,17 @@ def create_product(
 
     content = jsonable_encoder(_to_dict(product))
     store_response(db, idempotency_key, endpoint, 201, content, request_hash)
+
+    background_tasks.add_task(
+        publish_product_created,
+        product_id=product.id,
+        sku=product.sku,
+        name=product.name,
+        price=product.price,
+        category_id=product.category_id,
+        correlation_id=x_correlation_id,
+    )
+
     return content
 
 

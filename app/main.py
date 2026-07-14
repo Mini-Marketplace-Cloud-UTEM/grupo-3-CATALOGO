@@ -1,11 +1,13 @@
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
+from app import broker
 from app.database import Base, engine
 from app.routes import categories, products, uploads
 from app.utils import error_response
@@ -17,6 +19,14 @@ logging.basicConfig(
 logger = logging.getLogger("catalog")
 
 Base.metadata.create_all(bind=engine)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await broker.connect()
+    yield
+    await broker.disconnect()
+
 
 TAGS = [
     {
@@ -52,6 +62,7 @@ TAGS = [
 app = FastAPI(
     title="Catalog Service — Grupo 3",
     version="1.0.0",
+    lifespan=lifespan,
     description="""
 ## Mini Marketplace Cloud · Grupo 3
 

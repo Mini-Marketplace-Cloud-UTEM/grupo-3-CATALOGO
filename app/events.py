@@ -1,37 +1,46 @@
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-import httpx
+from app import broker
 
 logger = logging.getLogger("catalog.events")
 
-_SUBSCRIBERS = [
-    url.strip() for url in os.getenv("EVENT_SUBSCRIBERS", "").split(",") if url.strip()
-]
+
+def _envelope(event: str, correlation_id: Optional[str], data: dict) -> dict:
+    return {
+        "event": event,
+        "eventId": str(uuid.uuid4()),
+        "occurredAt": datetime.now(timezone.utc).isoformat(),
+        "source": "catalog-service",
+        "correlationId": correlation_id,
+        "data": data,
+    }
 
 
-async def _dispatch(event: dict) -> None:
-    logger.info("EVENT PUBLISHED %s %s", event["event"], event)
-
-    if not _SUBSCRIBERS:
-        return
-
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        for url in _SUBSCRIBERS:
-            try:
-                response = await client.post(
-                    url, json=event, headers={"X-Consumer": "catalog-service"}
-                )
-                logger.info(
-                    "EVENT DELIVERED subscriber=%s status=%d", url, response.status_code
-                )
-            except httpx.RequestError as exc:
-                logger.warning(
-                    "EVENT DELIVERY FAILED subscriber=%s error=%s", url, repr(exc)
-                )
+async def publish_product_created(
+    product_id: uuid.UUID,
+    sku: str,
+    name: str,
+    price: int,
+    category_id: uuid.UUID,
+    correlation_id: Optional[str],
+) -> None:
+    await broker.publish(
+        "catalog.product.created",
+        _envelope(
+            "ProductCreated",
+            correlation_id,
+            {
+                "productId": str(product_id),
+                "sku": sku,
+                "name": name,
+                "price": price,
+                "categoryId": str(category_id),
+            },
+        ),
+    )
 
 
 async def publish_product_price_changed(
@@ -41,19 +50,18 @@ async def publish_product_price_changed(
     new_price: int,
     correlation_id: Optional[str],
 ) -> None:
-    await _dispatch(
-        {
-            "event": "ProductPriceChanged",
-            "eventId": str(uuid.uuid4()),
-            "occurredAt": datetime.now(timezone.utc).isoformat(),
-            "correlationId": correlation_id,
-            "data": {
+    await broker.publish(
+        "catalog.product.price.changed",
+        _envelope(
+            "ProductPriceChanged",
+            correlation_id,
+            {
                 "productId": str(product_id),
                 "sku": sku,
                 "oldPrice": old_price,
                 "newPrice": new_price,
             },
-        }
+        ),
     )
 
 
@@ -64,17 +72,16 @@ async def publish_product_status_changed(
     new_status: str,
     correlation_id: Optional[str],
 ) -> None:
-    await _dispatch(
-        {
-            "event": "ProductStatusChanged",
-            "eventId": str(uuid.uuid4()),
-            "occurredAt": datetime.now(timezone.utc).isoformat(),
-            "correlationId": correlation_id,
-            "data": {
+    await broker.publish(
+        "catalog.product.status.changed",
+        _envelope(
+            "ProductStatusChanged",
+            correlation_id,
+            {
                 "productId": str(product_id),
                 "sku": sku,
                 "oldStatus": old_status,
                 "newStatus": new_status,
             },
-        }
+        ),
     )
