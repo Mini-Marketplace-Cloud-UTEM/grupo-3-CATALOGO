@@ -20,9 +20,10 @@ graph TD
     U([Usuario / Cliente]) -->|Busca y navega catálogo| G1[Grupo 1\nFrontend]
     G1 -->|GET /products\nGET /products/search| CAT[🗂️ Catalog Service\nGrupo 3]
     G4[Grupo 4\nCarro] -->|GET /products/:id| CAT
+    CAT -->|evento ProductPriceChanged\nProductStatusChanged| G4
     G6[Grupo 6\nInventario] -->|PUT /products/:id\nactualiza stockVisible| CAT
     G10[Grupo 10\nReportería] -->|GET /products| CAT
-    G2[Grupo 2\nAuth] -->|JWT token\nvalidación admin| CAT
+    CAT -->|POST /auth/validate\nvalidación admin| G2[Grupo 2\nAuth]
     CAT -->|SQL| DB[(Supabase\nPostgreSQL)]
     CAT -->|Storage| ST[(Supabase\nStorage)]
 ```
@@ -33,18 +34,29 @@ graph TD
 graph TD
     subgraph "Catalog Service — Render"
         API[FastAPI App\napp/main.py]
+        AUTH[app/auth.py\nvalida admin vs Grupo 2]
         PR[Products Router\napp/routes/products.py]
         CR[Categories Router\napp/routes/categories.py]
         UR[Uploads Router\napp/routes/uploads.py]
+        EVT[app/events.py\npublicador Pub/Sub]
+        IDM[app/idempotency.py\ncache de respuestas]
         ORM[SQLAlchemy ORM\napp/models.py]
         API --> PR
         API --> CR
         API --> UR
+        PR --> AUTH
+        CR --> AUTH
+        UR --> AUTH
+        PR --> EVT
+        PR --> IDM
+        CR --> IDM
         PR --> ORM
         CR --> ORM
+        IDM --> ORM
     end
     ORM -->|psycopg2| DB[(PostgreSQL\nSupabase)]
     UR -->|supabase-py| ST[(Storage\nSupabase)]
+    EVT -->|HTTP POST JSON| SUB[(Suscriptores\nej. Grupo 4)]
 ```
 
 ---
@@ -54,9 +66,10 @@ graph TD
 | Grupo | Servicio | Qué consume |
 |-------|----------|-------------|
 | Grupo 1 | Frontend | `GET /products` · `GET /products/search` |
-| Grupo 4 | Carro | `GET /products/{id}` |
+| Grupo 4 | Carro | `GET /products/{id}` · evento `ProductPriceChanged` · usa `size` para cotizar despacho con Grupo 6 |
 | Grupo 6 | Inventario | `PUT /products/{id}` (actualiza `stock_visible`) |
 | Grupo 10 | Reportería | `GET /products` |
+| Grupo 2 | Identidad | Validamos admin vía `POST /auth/validate` (llamada saliente) |
 
 ---
 
@@ -96,7 +109,56 @@ graph TD
 X-Request-Id: <uuid>
 X-Correlation-Id: <uuid>
 X-Consumer: <nombre-del-servicio-que-llama>
-Idempotency-Key: <uuid>    ← requerido solo en POST y PUT
+Idempotency-Key: <uuid>    ← obligatorio en POST /products y POST /categories
+```
+
+Si se reenvía el mismo `Idempotency-Key` en un reintento de `POST /products` o `POST /categories`, el servicio devuelve la misma respuesta original en vez de crear un duplicado. Sin el header, esos dos endpoints responden `400 INVALID_REQUEST`.
+
+---
+
+## Eventos (Pub/Sub)
+
+Además de los endpoints REST síncronos, el catálogo publica eventos JSON cuando cambia el precio o el estado de un producto, para que otros servicios (ej. Grupo 4 — Carro) puedan reaccionar sin tener que hacer polling.
+
+**Transporte:** HTTP POST directo a cada suscriptor (sin broker de mensajería). Se configura con la variable de entorno `EVENT_SUBSCRIBERS` (URLs separadas por coma). Si no hay suscriptores configurados, el evento igual se registra en los logs del servicio.
+
+### Eventos que publicamos
+
+| Evento | Cuándo se emite | Consumido por |
+|--------|------------------|----------------|
+| `ProductPriceChanged` | Cambia el campo `price` vía `PUT /products/{id}` | Grupo 4 (recalcula totales de carritos activos) |
+| `ProductStatusChanged` | Cambia `status` vía `PUT /products/{id}` o soft delete vía `DELETE /products/{id}` | — |
+
+### Formato
+
+```json
+{
+  "event": "ProductPriceChanged",
+  "eventId": "uuid",
+  "occurredAt": "2026-07-07T10:00:00Z",
+  "correlationId": "uuid-o-null",
+  "data": {
+    "productId": "uuid",
+    "sku": "TAL-700W-PRO",
+    "oldPrice": 49990,
+    "newPrice": 45990
+  }
+}
+```
+
+```json
+{
+  "event": "ProductStatusChanged",
+  "eventId": "uuid",
+  "occurredAt": "2026-07-07T10:00:00Z",
+  "correlationId": "uuid-o-null",
+  "data": {
+    "productId": "uuid",
+    "sku": "TAL-700W-PRO",
+    "oldStatus": "ACTIVE",
+    "newStatus": "INACTIVE"
+  }
+}
 ```
 
 ---
@@ -123,6 +185,7 @@ X-Consumer: frontend-service
       "categoryName": "Herramientas",
       "sku": "TAL-700W-PRO",
       "status": "ACTIVE",
+      "size": "M",
       "images": ["https://cdn.marketplace.cl/products/taladro.jpg"],
       "createdAt": "2026-05-01T10:00:00Z",
       "updatedAt": "2026-05-20T08:30:00Z"
@@ -179,6 +242,7 @@ X-Consumer: cart-service
 ```http
 POST /products
 Content-Type: application/json
+Authorization: Bearer <token-admin>
 Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0101
 X-Consumer: admin-panel
 ```
@@ -188,12 +252,16 @@ X-Consumer: admin-panel
   "name": "Sierra Circular 1200W",
   "description": "Sierra circular portátil con disco incluido",
   "price": 69990,
-  "stockVisible": 8,
   "categoryId": "550e8400-e29b-41d4-a716-446655440001",
   "sku": "SIE-1200W-PR",
+  "size": "L",
   "images": ["https://cdn.marketplace.cl/products/sierra.jpg"]
 }
 ```
+
+`size` es obligatorio al crear (usado por Grupo 6 para cotizar el despacho) y acepta `XS · S · M · L · XL · XXL`.
+
+`stockVisible` no se envía en la creación: todo producto nace con stock `0`. Es Grupo 6 (Inventario) quien lo actualiza después vía `PUT /products/{id}`; si se manda igual en el body, se ignora.
 
 **201 — creado** · **409 — SKU duplicado** · **400 — categoría no existe**
 
@@ -204,7 +272,7 @@ Solo se modifican los campos enviados. El resto queda igual.
 ```http
 PUT /products/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
-Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0102
+Authorization: Bearer <token-admin>
 X-Consumer: inventory-service
 ```
 
@@ -216,6 +284,7 @@ X-Consumer: inventory-service
 
 ```http
 DELETE /products/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 ```
 
@@ -252,6 +321,7 @@ X-Consumer: frontend-service
 ```http
 POST /categories
 Content-Type: application/json
+Authorization: Bearer <token-admin>
 Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0201
 X-Consumer: admin-panel
 ```
@@ -269,7 +339,7 @@ Solo se modifica el nombre. El resto de productos asociados no se afecta.
 ```http
 PUT /categories/550e8400-e29b-41d4-a716-446655440001
 Content-Type: application/json
-Idempotency-Key: 9e1a9b0f-5e56-40bd-9b0f-0f2e2c8c0202
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 ```
 
@@ -283,6 +353,7 @@ X-Consumer: admin-panel
 
 ```http
 DELETE /categories/{id}
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 ```
 
@@ -297,6 +368,7 @@ Sube una imagen y retorna la URL pública para usar en `POST /products`.
 ```http
 POST /uploads
 Content-Type: multipart/form-data
+Authorization: Bearer <token-admin>
 X-Consumer: admin-panel
 
 file: <archivo .jpg/.png/.webp — máx. 5MB>
@@ -343,10 +415,11 @@ products
 ├── name           TEXT  NOT NULL
 ├── description    TEXT
 ├── price          BIGINT  NOT NULL  -- entero en CLP (ej: 49990)
-├── stock_visible  INTEGER  DEFAULT 0
+├── stock_visible  INTEGER  DEFAULT 0        -- solo Grupo 6 lo cambia (PUT), siempre nace en 0
 ├── category_id    UUID  FK → categories.id
 ├── sku            TEXT  UNIQUE NOT NULL
 ├── status         TEXT  DEFAULT 'ACTIVE'   -- ACTIVE | INACTIVE | DELETED
+├── size           TEXT  DEFAULT 'M'        -- XS | S | M | L | XL | XXL
 ├── images         TEXT[]
 ├── created_at     TIMESTAMPTZ  DEFAULT NOW()
 └── updated_at     TIMESTAMPTZ  DEFAULT NOW()
@@ -364,7 +437,7 @@ Productos con UUIDs fijos disponibles en la nube para que otros grupos puedan pr
 |------|--------|--------|-------------|
 | `550e8400-e29b-41d4-a716-446655440000` | Taladro Eléctrico 700W | `ACTIVE` | Flujo normal — agregar al carrito, consultar precio |
 | `660e8400-e29b-41d4-a716-446655440001` | Sierra Circular 1200W | `ACTIVE` | Segundo producto activo para pruebas de listado |
-| `880e8400-e29b-41d4-a716-446655440003` | Lijadora Orbital 300W | `INACTIVE` | Probar rechazo en carrito (producto no disponible) |
+| `770e8400-e29b-41d4-a716-446655440002` | Aspiradora 2000W | `INACTIVE` | Probar rechazo en carrito (producto no disponible) |
 | `00000000-0000-0000-0000-000000000000` | — | No existe | Probar respuesta 404 `PRODUCT_NOT_FOUND` |
 
 ### Categorías disponibles (cargadas con `seed.sql`):
@@ -445,6 +518,13 @@ DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-1-us-east-1.pooler.supab
 # Supabase > Project Settings > API
 SUPABASE_URL=https://[ref].supabase.co
 SUPABASE_KEY=[anon-public-key]
+
+# Auth service (Grupo 2) — opcional, tiene default
+AUTH_SERVICE_URL=https://grupo2-identidadusuario.onrender.com
+AUTH_ENABLED=true
+
+# Opcional — URLs de suscriptores de eventos (Pub/Sub), separadas por coma
+EVENT_SUBSCRIBERS=https://ejemplo-suscriptor.onrender.com/eventos
 ```
 
 ---
@@ -460,8 +540,11 @@ grupo-3-CATALOGO/
 │       └── deploy.yml    # Deploy automático a Render
 ├── app/
 │   ├── main.py           # FastAPI app, CORS, tags Swagger
+│   ├── auth.py           # Validación de admin contra Grupo 2
 │   ├── database.py       # Conexión SQLAlchemy → Supabase
-│   ├── models.py         # Tablas Product y Category
+│   ├── events.py         # Publicador de eventos Pub/Sub (JSON vía HTTP)
+│   ├── idempotency.py    # Cache de respuestas por Idempotency-Key
+│   ├── models.py         # Tablas Product, Category, IdempotencyRecord
 │   ├── schemas.py        # Esquemas Pydantic request/response
 │   └── routes/
 │       ├── products.py   # Endpoints del catálogo de productos

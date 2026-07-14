@@ -26,10 +26,18 @@ CREATE TABLE IF NOT EXISTS products (
     sku           VARCHAR     NOT NULL UNIQUE,
     status        VARCHAR     NOT NULL DEFAULT 'ACTIVE'
                               CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED')),
+    size          VARCHAR     NOT NULL DEFAULT 'M'
+                              CHECK (size IN ('XS', 'S', 'M', 'L', 'XL', 'XXL')),
     images        TEXT[]      NOT NULL DEFAULT '{}',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Agrega la columna `size` si la tabla ya existía sin ella (deploy previo)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS size VARCHAR NOT NULL DEFAULT 'M';
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_size_check;
+ALTER TABLE products ADD CONSTRAINT products_size_check
+    CHECK (size IN ('XS', 'S', 'M', 'L', 'XL', 'XXL'));
 
 -- ── Índices ──────────────────────────────────────────────────
 
@@ -59,3 +67,18 @@ DROP TRIGGER IF EXISTS trg_products_updated_at ON products;
 CREATE TRIGGER trg_products_updated_at
     BEFORE UPDATE ON products
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ── Tabla: idempotency_records ───────────────────────────────
+-- Cachea la respuesta de un POST por Idempotency-Key + endpoint,
+-- para que un reintento con la misma key devuelva el resultado
+-- original en vez de crear un duplicado.
+
+CREATE TABLE IF NOT EXISTS idempotency_records (
+    key             VARCHAR     NOT NULL,
+    endpoint        VARCHAR     NOT NULL,
+    request_hash    VARCHAR,
+    response_status INTEGER     NOT NULL,
+    response_body   JSONB       NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (key, endpoint)
+);

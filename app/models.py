@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func, BigInteger
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import uuid
@@ -33,6 +33,7 @@ class Product(Base):
     )
     sku = Column(String, nullable=False, unique=True)
     status = Column(String, nullable=False, default="ACTIVE", index=True)
+    size = Column(String, nullable=False, default="M")
     images = Column(ARRAY(String), default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -40,3 +41,14 @@ class Product(Base):
     )
 
     category = relationship("Category", back_populates="products")
+
+
+class IdempotencyRecord(Base):
+    __tablename__ = "idempotency_records"
+
+    key = Column(String, primary_key=True)
+    endpoint = Column(String, primary_key=True)
+    request_hash = Column(String, nullable=True)
+    response_status = Column(Integer, nullable=False)
+    response_body = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

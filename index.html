@@ -129,7 +129,14 @@
     .btn:hover { opacity: 0.85; }
     .btn-primary { background: #3b82f6; color: #fff; }
     .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-danger { background: #7f1d1d; color: #fecaca; }
     .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+    .modal-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #334155;
+    }
 
     /* Search bar */
     .search-row {
@@ -277,8 +284,16 @@
           <input id="c-price" type="number" placeholder="49990" />
         </div>
         <div class="form-group">
-          <label>Stock visible</label>
-          <input id="c-stock" type="number" placeholder="10" value="0" />
+          <label>Talla *</label>
+          <select id="c-size">
+            <option value="">Selecciona una talla</option>
+            <option value="XS">XS</option>
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+            <option value="XXL">XXL</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Categoría *</label>
@@ -313,6 +328,32 @@
       <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
     </div>
     <div id="modal-body"></div>
+
+    <div class="modal-section">
+      <p class="section-title">Editar producto</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Precio</label>
+          <input id="e-price" type="number" />
+        </div>
+        <div class="form-group">
+          <label>Stock visible</label>
+          <input id="e-stock" type="number" />
+        </div>
+        <div class="form-group full">
+          <label>Estado</label>
+          <select id="e-status">
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="updateProduct()">Guardar cambios</button>
+        <button class="btn btn-danger" onclick="deleteProduct()">Eliminar producto</button>
+      </div>
+      <div id="edit-response"></div>
+    </div>
   </div>
 </div>
 
@@ -321,15 +362,33 @@
   let currentPage = 1
   let totalPages = 1
   let categories = []
+  let currentProductId = null
+
+  // ── token admin (Grupo 2) — se pide solo cuando hace falta, se recuerda
+  // en esta pestaña mientras siga abierta (sessionStorage) ────────────────
+  function getAdminToken() {
+    let token = sessionStorage.getItem('adminToken')
+    if (!token) {
+      const input = prompt('Esta acción requiere un token admin real de Grupo 2.\nPega el access_token (sin la palabra "Bearer"):')
+      if (input) {
+        token = input.trim()
+        sessionStorage.setItem('adminToken', token)
+      }
+    }
+    return token
+  }
 
   // ── headers estándar ──────────────────────────────────────────────────────
   function headers() {
-    return {
+    const base = {
       'Content-Type': 'application/json',
       'X-Consumer': 'mini-frontend',
       'X-Request-Id': crypto.randomUUID(),
       'X-Correlation-Id': crypto.randomUUID(),
     }
+    const token = sessionStorage.getItem('adminToken')
+    if (token) base['Authorization'] = `Bearer ${token}`
+    return base
   }
 
   // ── check salud ──────────────────────────────────────────────────────────
@@ -443,6 +502,9 @@
     const res = await fetch(`${API}/products/${id}`, { headers: headers() })
     const p = await res.json()
 
+    currentProductId = p.id
+    document.getElementById('edit-response').innerHTML = ''
+
     document.getElementById('modal-title').textContent = p.name
     document.getElementById('modal-body').innerHTML = `
       ${row('ID', p.id)}
@@ -456,7 +518,61 @@
       ${row('Creado', new Date(p.createdAt).toLocaleString('es-CL'))}
       ${row('Actualizado', new Date(p.updatedAt).toLocaleString('es-CL'))}
     `
+
+    document.getElementById('e-price').value = p.price
+    document.getElementById('e-stock').value = p.stockVisible
+    document.getElementById('e-status').value = p.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE'
+
     document.getElementById('modal').classList.add('open')
+  }
+
+  // ── actualizar producto ──────────────────────────────────────────────────
+  async function updateProduct() {
+    if (!getAdminToken()) return
+    const respBox = document.getElementById('edit-response')
+    const body = {
+      price: parseFloat(document.getElementById('e-price').value),
+      stock_visible: parseInt(document.getElementById('e-stock').value),
+      status: document.getElementById('e-status').value,
+    }
+
+    const res = await fetch(`${API}/products/${currentProductId}`, {
+      method: 'PUT',
+      headers: { ...headers(), 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+
+    if (res.ok) {
+      respBox.innerHTML = `<div class="response-box">✅ Producto actualizado:\n\n${JSON.stringify(data, null, 2)}</div>`
+      loadProducts()
+    } else {
+      respBox.innerHTML = `<div class="response-box error-box">❌ Error ${res.status}:\n\n${JSON.stringify(data, null, 2)}</div>`
+    }
+  }
+
+  // ── eliminar producto (soft delete) ──────────────────────────────────────
+  async function deleteProduct() {
+    if (!getAdminToken()) return
+    const respBox = document.getElementById('edit-response')
+
+    if (!confirm('¿Eliminar este producto? Quedará marcado como DELETED y dejará de aparecer en listados.')) {
+      return
+    }
+
+    const res = await fetch(`${API}/products/${currentProductId}`, {
+      method: 'DELETE',
+      headers: headers(),
+    })
+
+    if (res.status === 204) {
+      respBox.innerHTML = `<div class="response-box">✅ Producto eliminado (soft delete).</div>`
+      document.getElementById('modal').classList.remove('open')
+      loadProducts()
+    } else {
+      const data = await res.json()
+      respBox.innerHTML = `<div class="response-box error-box">❌ Error ${res.status}:\n\n${JSON.stringify(data, null, 2)}</div>`
+    }
   }
 
   function row(key, val) {
@@ -480,17 +596,18 @@
   }
 
   async function createProduct() {
+    if (!getAdminToken()) return
     const name     = document.getElementById('c-name').value.trim()
     const sku      = document.getElementById('c-sku').value.trim()
     const price    = parseFloat(document.getElementById('c-price').value)
-    const stock    = parseInt(document.getElementById('c-stock').value) || 0
+    const size     = document.getElementById('c-size').value
     const catId    = document.getElementById('c-category').value
     const image    = document.getElementById('c-image').value.trim()
     const desc     = document.getElementById('c-desc').value.trim()
     const respBox  = document.getElementById('create-response')
 
-    if (!name || !price || !catId) {
-      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio y Categoría son obligatorios.</div>`
+    if (!name || !price || !catId || !size) {
+      respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio, Categoría y Talla son obligatorios.</div>`
       return
     }
 
@@ -498,7 +615,7 @@
       name,
       ...(sku && { sku }),
       price,
-      stock_visible: stock,
+      size,
       category_id: catId,
       description: desc || undefined,
       images: image ? [image] : [],
@@ -523,10 +640,9 @@
   }
 
   function clearForm() {
-    ['c-name','c-sku','c-price','c-stock','c-image','c-desc'].forEach(id => {
+    ['c-name','c-sku','c-price','c-size','c-image','c-desc'].forEach(id => {
       document.getElementById(id).value = ''
     })
-    document.getElementById('c-stock').value = '0'
   }
 
   // ── init ─────────────────────────────────────────────────────────────────

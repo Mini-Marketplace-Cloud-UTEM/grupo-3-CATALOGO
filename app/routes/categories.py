@@ -3,11 +3,18 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from app.auth import require_admin
 from app.database import get_db
+from app.idempotency import (
+    CONFLICT,
+    compute_request_hash,
+    get_cached_response,
+    store_response,
+)
 from app.models import Category, Product
 from app.schemas import (
     CategoryListResponse,
@@ -165,22 +172,53 @@ def create_category(
     ),
     x_correlation_id: Optional[str] = Header(None),
 ):
-    if db.query(Category).filter(Category.name == body.name).first():
+    endpoint = "POST /categories"
+
+    if not idempotency_key:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(
+                "INVALID_REQUEST",
+                "Idempotency-Key header is required",
+                400,
+                x_correlation_id,
+            ),
+        )
+
+    request_hash = compute_request_hash(body.model_dump())
+    cached = get_cached_response(db, idempotency_key, endpoint, request_hash)
+    if cached == CONFLICT:
         return JSONResponse(
             status_code=409,
             content=error_response(
-                "DUPLICATE_CATEGORY",
-                "Category name already exists",
+                "IDEMPOTENCY_KEY_CONFLICT",
+                "Esta Idempotency-Key ya se usó con datos diferentes. Usa una key distinta para esta operación.",
                 409,
                 x_correlation_id,
             ),
         )
+    if cached:
+        status, body_cached = cached
+        return JSONResponse(status_code=status, content=body_cached)
+
+    if db.query(Category).filter(Category.name == body.name).first():
+        content = error_response(
+            "DUPLICATE_CATEGORY",
+            "Category name already exists",
+            409,
+            x_correlation_id,
+        )
+        store_response(db, idempotency_key, endpoint, 409, content, request_hash)
+        return JSONResponse(status_code=409, content=content)
 
     category = Category(name=body.name)
     db.add(category)
     db.commit()
     db.refresh(category)
-    return _to_dict(category)
+
+    content = jsonable_encoder(_to_dict(category))
+    store_response(db, idempotency_key, endpoint, 201, content, request_hash)
+    return content
 
 
 # ── PUT /categories/{id} ─────────────────────────────────────────────────────
@@ -198,7 +236,6 @@ def update_category(
     body: UpdateCategoryRequest,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
-    idempotency_key: Optional[str] = Header(None),
     x_correlation_id: Optional[str] = Header(None),
 ):
     category = db.query(Category).filter(Category.id == category_id).first()
