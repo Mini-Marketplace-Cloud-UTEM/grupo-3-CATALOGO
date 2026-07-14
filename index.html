@@ -227,6 +227,15 @@
     .detail-row .val { font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
 
     select option { background: #1e293b; }
+
+    #c-image-preview { margin-top: 8px; }
+    #c-image-preview img {
+      max-width: 120px;
+      max-height: 120px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      object-fit: cover;
+    }
   </style>
 </head>
 <body>
@@ -301,9 +310,11 @@
             <option value="">Cargando categorías...</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>URL de imagen</label>
-          <input id="c-image" type="text" placeholder="https://..." />
+        <div class="form-group full">
+          <label>Foto del producto</label>
+          <input id="c-image-file" type="file" accept="image/jpeg,image/png,image/webp" onchange="previewImage(event)" />
+          <div id="c-image-preview"></div>
+          <input id="c-image" type="text" placeholder="...o pega una URL de imagen directamente" style="margin-top:8px;" />
         </div>
         <div class="form-group full">
           <label>Descripción</label>
@@ -379,9 +390,9 @@
   }
 
   // ── headers estándar ──────────────────────────────────────────────────────
-  function headers() {
+  // sin Content-Type: lo necesita fetch() para multipart/form-data (subida de imagen)
+  function authHeaders() {
     const base = {
-      'Content-Type': 'application/json',
       'X-Consumer': 'mini-frontend',
       'X-Request-Id': crypto.randomUUID(),
       'X-Correlation-Id': crypto.randomUUID(),
@@ -389,6 +400,10 @@
     const token = sessionStorage.getItem('adminToken')
     if (token) base['Authorization'] = `Bearer ${token}`
     return base
+  }
+
+  function headers() {
+    return { 'Content-Type': 'application/json', ...authHeaders() }
   }
 
   // ── check salud ──────────────────────────────────────────────────────────
@@ -583,6 +598,31 @@
     if (e.target.id === 'modal') document.getElementById('modal').classList.remove('open')
   }
 
+  // ── subir imagen a Supabase Storage ──────────────────────────────────────
+  function previewImage(e) {
+    const file = e.target.files[0]
+    const preview = document.getElementById('c-image-preview')
+    if (!file) { preview.innerHTML = ''; return }
+    preview.innerHTML = `<img src="${URL.createObjectURL(file)}" />`
+  }
+
+  async function uploadImage(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await fetch(`${API}/uploads`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData,
+    })
+    const data = await res.json()
+
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `Error ${res.status} al subir la imagen`)
+    }
+    return data.url
+  }
+
   // ── crear producto ───────────────────────────────────────────────────────
   async function loadCategories() {
     try {
@@ -602,13 +642,25 @@
     const price    = parseFloat(document.getElementById('c-price').value)
     const size     = document.getElementById('c-size').value
     const catId    = document.getElementById('c-category').value
-    const image    = document.getElementById('c-image').value.trim()
+    const imageFile = document.getElementById('c-image-file').files[0]
+    const imageUrl  = document.getElementById('c-image').value.trim()
     const desc     = document.getElementById('c-desc').value.trim()
     const respBox  = document.getElementById('create-response')
 
     if (!name || !price || !catId || !size) {
       respBox.innerHTML = `<div class="response-box error-box">⚠️ Nombre, Precio, Categoría y Talla son obligatorios.</div>`
       return
+    }
+
+    let image = imageUrl
+    if (imageFile) {
+      respBox.innerHTML = `<div class="response-box">⏳ Subiendo imagen...</div>`
+      try {
+        image = await uploadImage(imageFile)
+      } catch (e) {
+        respBox.innerHTML = `<div class="response-box error-box">❌ ${e.message}</div>`
+        return
+      }
     }
 
     const body = {
@@ -640,9 +692,10 @@
   }
 
   function clearForm() {
-    ['c-name','c-sku','c-price','c-size','c-image','c-desc'].forEach(id => {
+    ['c-name','c-sku','c-price','c-size','c-image','c-desc','c-image-file'].forEach(id => {
       document.getElementById(id).value = ''
     })
+    document.getElementById('c-image-preview').innerHTML = ''
   }
 
   // ── init ─────────────────────────────────────────────────────────────────
