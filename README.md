@@ -168,9 +168,15 @@ Además de los endpoints REST síncronos, el catálogo publica eventos JSON cuan
 ### GET /products
 
 ```http
-GET /products?page=1&size=20
+GET /products?page=1&size=20&categoryId=550e8400-e29b-41d4-a716-446655440001
 X-Consumer: frontend-service
 ```
+
+| Parámetro | Tipo | Requerido | Default |
+|-----------|------|-----------|---------|
+| `page` | integer | No | 1 |
+| `size` | integer (máx. 100) | No | 20 |
+| `categoryId` | uuid | No | — |
 
 ```json
 {

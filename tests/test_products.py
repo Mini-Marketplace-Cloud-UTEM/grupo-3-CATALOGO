@@ -54,6 +54,23 @@ def test_list_products_invalid_page():
     assert res.status_code == 422
 
 
+def test_list_products_by_category():
+    category_id = "550e8400-e29b-41d4-a716-446655440001"
+    res = client.get(f"/products?categoryId={category_id}&size=100", headers=HEADERS)
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["data"]) > 0
+    assert all(p["categoryId"] == category_id for p in body["data"])
+
+
+def test_list_products_by_category_no_match():
+    res = client.get(f"/products?categoryId={uuid.uuid4()}", headers=HEADERS)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["data"] == []
+    assert body["pagination"]["total"] == 0
+
+
 # ── GET /products/search ──────────────────────────────────────────────────────
 
 def test_search_products():
