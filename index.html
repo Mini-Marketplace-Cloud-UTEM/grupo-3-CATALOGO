@@ -257,6 +257,11 @@
   <!-- ── PANEL: LISTA ── -->
   <div id="panel-productos" class="panel active">
     <p class="section-title">Catálogo paginado</p>
+    <div class="search-row">
+      <select id="filter-category" onchange="onCategoryFilterChange()" style="max-width:260px">
+        <option value="">Todas las categorías</option>
+      </select>
+    </div>
     <div id="product-list"><p class="empty">Cargando...</p></div>
     <div class="pagination">
       <button class="btn btn-secondary btn-sm" onclick="changePage(-1)">← Anterior</button>
@@ -374,6 +379,7 @@
   let totalPages = 1
   let categories = []
   let currentProductId = null
+  let categoryFilter = ''
 
   // ── token admin (Grupo 2) — se pide solo cuando hace falta, se recuerda
   // en esta pestaña mientras siga abierta (sessionStorage) ────────────────
@@ -429,7 +435,8 @@
 
   // ── listar productos ─────────────────────────────────────────────────────
   async function loadProducts() {
-    const res = await fetch(`${API}/products?page=${currentPage}&size=6`, { headers: headers() })
+    const categoryParam = categoryFilter ? `&categoryId=${categoryFilter}` : ''
+    const res = await fetch(`${API}/products?page=${currentPage}&size=6${categoryParam}`, { headers: headers() })
     const data = await res.json()
     totalPages = data.pagination.totalPages
 
@@ -450,6 +457,12 @@
     const next = currentPage + dir
     if (next < 1 || next > totalPages) return
     currentPage = next
+    loadProducts()
+  }
+
+  function onCategoryFilterChange() {
+    categoryFilter = document.getElementById('filter-category').value
+    currentPage = 1
     loadProducts()
   }
 
@@ -632,6 +645,10 @@
       categories = body.data
       const sel = document.getElementById('c-category')
       sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+
+      const filterSel = document.getElementById('filter-category')
+      filterSel.innerHTML = '<option value="">Todas las categorías</option>' +
+        categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
     } catch {}
   }
 

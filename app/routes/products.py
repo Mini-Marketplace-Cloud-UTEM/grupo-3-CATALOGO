@@ -146,6 +146,7 @@ def _paginate(query, page: int, size: int) -> tuple:
 def list_products(
     page: int = Query(1, ge=1, description="Número de página"),
     size: int = Query(20, ge=1, le=100, description="Productos por página (máx. 100)"),
+    categoryId: Optional[uuid.UUID] = Query(None, description="Filtrar por categoría"),
     db: Session = Depends(get_db),
     x_request_id: Optional[str] = Header(None),
     x_correlation_id: Optional[str] = Header(None),
@@ -156,6 +157,8 @@ def list_products(
         .options(joinedload(Product.category))
         .filter(Product.status != "DELETED")
     )
+    if categoryId:
+        query = query.filter(Product.category_id == categoryId)
     items, pagination = _paginate(query, page, size)
     return {"data": [_to_dict(p) for p in items], "pagination": pagination}
 
